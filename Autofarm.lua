@@ -11,9 +11,6 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
-local LiveFolder = workspace:WaitForChild("Live", 9e9)
-local EffectsFolder = workspace:WaitForChild("Effects", 9e9)
-
 local Config = {
     AutoFarm = false,
     SelectedMob = nil,
@@ -41,12 +38,16 @@ end
 local function GetNpcList()
     local list = {}
     local seen = {}
-    for _, npc in ipairs(LiveFolder:GetChildren()) do
-        if npc:IsA("Model") and npc.Name ~= "" then
-            local baseName = GetBaseName(npc.Name)
-            if not seen[baseName] then
-                table.insert(list, baseName)
-                seen[baseName] = true
+    local liveFolder = workspace:FindFirstChild("Live")
+    
+    if liveFolder then
+        for _, npc in ipairs(liveFolder:GetChildren()) do
+            if npc:IsA("Model") and npc.Name ~= "" then
+                local baseName = GetBaseName(npc.Name)
+                if not seen[baseName] then
+                    table.insert(list, baseName)
+                    seen[baseName] = true
+                end
             end
         end
     end
@@ -85,17 +86,8 @@ Tabs.Farm:AddToggle("Toggle_AutoFarm", {
 
 local SectionPos = Tabs.Farm:AddSection("Cài đặt Tọa Độ (Position)")
 
-Tabs.Farm:AddDropdown("Dropdown_Pos", {
-    Title = "Vị trí Đứng",
-    Values = {"Behind", "Under", "Upper"},
-    Multi = false,
-    Default = 1,
-    Callback = function(Value)
-        Config.PositionMode = Value
-    end
-})
-
-Tabs.Farm:AddSlider("Slider_Distance", { Title = "Khoảng cách (Distance)", Default = 5, Min = 0, Max = 30, Rounding = 1, Callback = function(Value) Config.Distance = Value end })
+Tabs.Farm:AddDropdown("Dropdown_Pos", { Title = "Vị trí Đứng", Values = {"Behind", "Under", "Upper"}, Multi = false, Default = 1, Callback = function(Value) Config.PositionMode = Value end })
+Tabs.Farm:AddSlider("Slider_Distance", { Title = "Khoảng cách", Default = 5, Min = 0, Max = 30, Rounding = 1, Callback = function(Value) Config.Distance = Value end })
 Tabs.Farm:AddSlider("Slider_OffsetX", { Title = "Offset X", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetX = Value end })
 Tabs.Farm:AddSlider("Slider_OffsetY", { Title = "Offset Y", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetY = Value end })
 Tabs.Farm:AddSlider("Slider_OffsetZ", { Title = "Offset Z", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetZ = Value end })
@@ -121,12 +113,14 @@ end)
 -- ==========================================
 local function GetTarget()
     if not Config.SelectedMob then return nil end
-    for _, npc in ipairs(LiveFolder:GetChildren()) do
+    local liveFolder = workspace:FindFirstChild("Live")
+    if not liveFolder then return nil end
+    
+    for _, npc in ipairs(liveFolder:GetChildren()) do
         if npc:IsA("Model") then
             local hrp = npc:FindFirstChild("HumanoidRootPart")
             local humanoid = npc:FindFirstChild("Humanoid")
             
-            -- Bỏ qua quái bị giấu dưới gầm map (Y < -500)
             if hrp and humanoid and humanoid.Health > 0 and hrp.Position.Y > -500 then
                 local baseName = GetBaseName(npc.Name)
                 if baseName == Config.SelectedMob then
@@ -153,7 +147,6 @@ local function CalculateCFrame(targetCFrame)
     offsetCFrame = offsetCFrame * CFrame.new(Config.OffsetX, Config.OffsetY, Config.OffsetZ)
     local finalPos = (targetCFrame * offsetCFrame).Position
     
-    -- Chống lỗi NaN văng map nếu tọa độ trùng nhau
     if (finalPos - targetPos).Magnitude < 0.1 then
         return CFrame.new(finalPos)
     end
@@ -161,7 +154,6 @@ local function CalculateCFrame(targetCFrame)
     return CFrame.lookAt(finalPos, targetPos)
 end
 
--- VÒNG LẶP AUTO FARM VÀ M1
 RunService.Heartbeat:Connect(function()
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -173,7 +165,6 @@ RunService.Heartbeat:Connect(function()
         local target = GetTarget()
         if target then
             if hrp.Anchored then hrp.Anchored = false end 
-            
             hrp.CFrame = CalculateCFrame(target.HumanoidRootPart.CFrame)
             
             if controller and controller:FindFirstChild("M1") then
@@ -181,16 +172,13 @@ RunService.Heartbeat:Connect(function()
                 controller.M1:FireServer(args[1], args[2])
             end
         else
-            -- Hết quái thì đóng băng neo trên không
             hrp.Anchored = true
         end
     else
-        -- Tắt Auto thì thả rơi tự do
         if hrp.Anchored then hrp.Anchored = false end
     end
 end)
 
--- VÒNG LẶP AUTO SKILL
 task.spawn(function()
     while task.wait(0.5) do
         if Config.AutoFarm and Config.AutoSkill then
@@ -213,16 +201,17 @@ task.spawn(function()
     end
 end)
 
--- VÒNG LẶP AUTO STAND
 task.spawn(function()
     while task.wait(1.5) do
         if Config.AutoStand then
             local character = LocalPlayer.Character
-            if character then
+            local effectsFolder = workspace:FindFirstChild("Effects")
+            
+            if character and effectsFolder then
                 local controller = character:FindFirstChild("client_character_controller")
                 local standModelName = "." .. LocalPlayer.Name .. "'s Stand"
                 
-                if not EffectsFolder:FindFirstChild(standModelName) then
+                if not effectsFolder:FindFirstChild(standModelName) then
                     if controller and controller:FindFirstChild("SummonStand") then
                         pcall(function()
                             controller.SummonStand:FireServer()
