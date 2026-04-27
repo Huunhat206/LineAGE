@@ -468,7 +468,7 @@ task.spawn(function()
 end)
 
 -- ── SECTION: Webhook ─────────────────────────────────────────────────────────
-Tabs.Misc:AddSection("📡 Báo Cáo Discord (Webhook)")
+Tabs.Misc:AddSection("Báo Cáo Discord (Webhook)")
 
 Tabs.Misc:AddInput("Input_WebhookURL", {
     Title       = "Discord Webhook URL",
