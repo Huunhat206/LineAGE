@@ -13,6 +13,9 @@ local HttpService    = game:GetService("HttpService")
 local TweenService   = game:GetService("TweenService")
 local LocalPlayer    = Players.LocalPlayer
 
+-- ÉP BẬT LẠI 3D RENDER NGAY TỪ ĐẦU (Chống lỗi Fluent tự load config cũ làm đen màn hình)
+pcall(function() RunService:Set3dRenderingEnabled(true) end)
+
 local Config = {
     WebhookURL    = "",
     BlackScreen   = false,
@@ -97,10 +100,10 @@ local function SendWebhook(silent)
             color       = 0x7B68EE,
             thumbnail   = { url = LOGO_URL },
             fields = {
-                { name = "👤 Tên Người Chơi", value = string.format("`%s`", data.Name),         inline = true  },
-                { name = "⭐ Level",           value = string.format("`%s`", tostring(data.Level)), inline = true  },
-                { name = "🛡️ Stand",          value = string.format("`%s`", data.Stand),        inline = false },
-                { name = "💰 Raid Tokens",     value = tokensStr,                                 inline = false }
+                { name = "👤 Tên Người Chơi", value = string.format("`%s`", data.Name),        inline = true  },
+                { name = "⭐ Level",          value = string.format("`%s`", tostring(data.Level)), inline = true  },
+                { name = "🛡️ Stand",         value = string.format("`%s`", data.Stand),        inline = false },
+                { name = "💰 Raid Tokens",     value = tokensStr,                                inline = false }
             },
             footer = {
                 text     = "Nthuc Hub  •  Auto Reporter",
@@ -159,7 +162,7 @@ local BlackScreenGui = Instance.new("ScreenGui")
 BlackScreenGui.Name           = "NthucHub_BlackScreen"
 BlackScreenGui.DisplayOrder   = 999998
 BlackScreenGui.IgnoreGuiInset = true
-BlackScreenGui.Enabled        = false
+BlackScreenGui.Enabled        = false -- Ẩn mặc định
 BlackScreenGui.Parent         = guiTarget
 
 -- ── Nền tối ──────────────────────────────────────────────────────────────────
@@ -167,6 +170,7 @@ local BlackBG = Instance.new("Frame")
 BlackBG.Name            = "Background"
 BlackBG.Size            = UDim2.new(1, 0, 1, 0)
 BlackBG.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+BlackBG.Visible         = false -- Ẩn mặc định để an toàn
 BlackBG.Parent          = BlackScreenGui
 
 -- Gradient nền nhẹ
@@ -233,7 +237,7 @@ local HeaderTitle = Instance.new("TextLabel")
 HeaderTitle.Size                = UDim2.new(1, -50, 1, 0)
 HeaderTitle.Position            = UDim2.new(0, 15, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text                = "✦ NTHUC HUB"
+HeaderTitle.Text                = "NTHUC HUB" -- FIX LỖI Ô VUÔNG: Đã xóa icon lạ
 HeaderTitle.Font                = Enum.Font.GothamBold
 HeaderTitle.TextSize            = 16
 HeaderTitle.TextColor3          = Color3.fromRGB(220, 200, 255)
@@ -244,7 +248,7 @@ HeaderTitle.Parent              = HeaderBar
 local LiveBadge = Instance.new("Frame")
 LiveBadge.Size             = UDim2.new(0, 48, 0, 20)
 LiveBadge.AnchorPoint      = Vector2.new(1, 0.5)
-LiveBadge.Position         = UDim2.new(1, -12, 0.5, 0)
+LiveBadge.Position         = UDim2.new(1, -45, 0.5, 0) -- FIX GIAO DIỆN: Đẩy sang trái để không đè lên nút X
 LiveBadge.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 LiveBadge.Parent           = HeaderBar
 Instance.new("UICorner", LiveBadge).CornerRadius = UDim.new(0, 6)
@@ -260,15 +264,19 @@ LiveText.Parent                 = LiveBadge
 
 -- Nhấp nháy LIVE
 task.spawn(function()
-    while BlackScreenGui.Enabled do
-        TweenService:Create(LiveBadge, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-        }):Play()
-        task.wait(0.8)
-        TweenService:Create(LiveBadge, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            BackgroundColor3 = Color3.fromRGB(150, 30, 30)
-        }):Play()
-        task.wait(0.8)
+    while true do -- Đã sửa logic chạy liên tục không phụ thuộc để tránh lỗi crash thread
+        if BlackScreenGui.Enabled then
+            TweenService:Create(LiveBadge, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+            }):Play()
+            task.wait(0.8)
+            TweenService:Create(LiveBadge, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+            }):Play()
+            task.wait(0.8)
+        else
+            task.wait(0.5)
+        end
     end
 end)
 
@@ -355,7 +363,7 @@ CloseBtn.Size             = UDim2.new(0, 28, 0, 28)
 CloseBtn.AnchorPoint      = Vector2.new(1, 0)
 CloseBtn.Position         = UDim2.new(1, -10, 0, 10)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-CloseBtn.Text             = "✕"
+CloseBtn.Text             = "X" -- FIX LỖI Ô VUÔNG: Đổi sang ký tự X thường
 CloseBtn.Font             = Enum.Font.GothamBold
 CloseBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
 CloseBtn.TextSize         = 13
@@ -445,12 +453,13 @@ local Toggle_BlackScreen = Tabs.Misc:AddToggle("Toggle_BlackScreen", {
     Default     = false,
     Callback    = function(Value)
         Config.BlackScreen = Value
+        BlackScreenGui.Enabled = Value
+        BlackBG.Visible = Value
+        
         if Value then
             UpdateBlackScreen()
-            BlackScreenGui.Enabled = true
             pcall(function() RunService:Set3dRenderingEnabled(false) end)
         else
-            BlackScreenGui.Enabled = false
             pcall(function() RunService:Set3dRenderingEnabled(true) end)
         end
     end
