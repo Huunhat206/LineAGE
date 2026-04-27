@@ -29,11 +29,12 @@ local Tabs = {
 }
 
 -- ==========================================
--- 3. TẢI CÁC MODULE (Autofarm.lua...)
+-- 3. TẢI CÁC MODULE (Autofarm, Autoraid...)
 -- ==========================================
 local githubRepo = "https://raw.githubusercontent.com/Huunhat206/LineAGE/main/"
 local Modules = {
     "Autofarm.lua"
+    -- Thêm các file khác vào đây: "Autoraid.lua", "Misc.lua"...
 }
 
 for _, fileName in ipairs(Modules) do
@@ -62,17 +63,14 @@ SaveManager:SetIgnoreIndexes({})
 InterfaceManager:SetFolder("NthucHub")
 SaveManager:SetFolder("NthucHub/GameConfig")
 
--- Vẽ các nút Config cơ bản của Fluent
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
--- Thêm mục cấu hình Nâng cao: AUTO SAVE
 local SectionAdvanced = Tabs.Settings:AddSection("Cài đặt Nâng cao")
-
 local isAutoSaving = false
-local AutoSaveToggle = Tabs.Settings:AddToggle("Toggle_AutoSave", {
+Tabs.Settings:AddToggle("Toggle_AutoSave", {
     Title = "Tự động lưu Config (Auto Save)",
-    Description = "Tự động lưu lại cài đặt hiện tại mỗi 30 giây",
+    Description = "Lưu lại cài đặt hiện tại mỗi 30 giây",
     Default = false,
     Callback = function(Value)
         isAutoSaving = Value
@@ -82,56 +80,73 @@ local AutoSaveToggle = Tabs.Settings:AddToggle("Toggle_AutoSave", {
     end
 })
 
--- Luồng chạy ngầm tự động lưu mỗi 30 giây
 task.spawn(function()
     while task.wait(30) do
         if isAutoSaving then
-            -- Nếu bạn đã tạo và chọn 1 file config trước đó, nó sẽ lưu đè lên file đó.
-            -- Nếu bạn chưa tạo file nào, nó sẽ tự động tạo một file tên là "AutoSave_Default"
             local configName = SaveManager.CurrentConfig
             if not configName or configName == "" then
                 configName = "AutoSave_Default"
             end
-            
-            pcall(function()
-                SaveManager:Save(configName)
-            end)
+            pcall(function() SaveManager:Save(configName) end)
         end
     end
 end)
 
 -- ==========================================
--- 5. NÚT NỔI TẮT/MỞ UI (FLOATING TOGGLE BUTTON)
+-- 5. FIX LỖI MẤT CHUỘT (Ấn LEFT ALT)
+-- ==========================================
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local isMouseForced = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.LeftAlt then
+        isMouseForced = not isMouseForced
+        if getgenv().NthucHub_UI then
+            getgenv().NthucHub_UI:Notify({
+                Title = "Hệ thống Chuột",
+                Content = isMouseForced and "Đã MỞ khóa chuột!" or "Đã KHÓA chuột theo game!",
+                Duration = 2
+            })
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if isMouseForced then
+        UserInputService.MouseIconEnabled = true
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    end
+end)
+
+-- ==========================================
+-- 6. NÚT NỔI TẮT/MỞ UI (Kéo Thả Được)
 -- ==========================================
 local CoreGui = game:GetService("CoreGui")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local UserInputService = game:GetService("UserInputService")
 
--- Xóa nút cũ nếu đã chạy trước đó để không bị trùng lặp
 if getgenv().NthucHub_ToggleButton then
     pcall(function() getgenv().NthucHub_ToggleButton:Destroy() end)
 end
 
--- Tạo ScreenGui chứa nút
 local ToggleGui = Instance.new("ScreenGui")
 ToggleGui.Name = "NthucHub_Toggle"
 ToggleGui.Parent = CoreGui
 getgenv().NthucHub_ToggleButton = ToggleGui
 
--- Tạo Nút vuông
 local Btn = Instance.new("TextButton")
 Btn.Name = "ToggleBtn"
 Btn.Parent = ToggleGui
 Btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Btn.Position = UDim2.new(0.9, 0, 0.4, 0) -- Nằm góc bên phải màn hình
+Btn.Position = UDim2.new(0.9, 0, 0.4, 0)
 Btn.Size = UDim2.new(0, 45, 0, 45)
 Btn.Font = Enum.Font.GothamBold
-Btn.Text = "N" -- Logo chữ N
+Btn.Text = "N"
 Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 Btn.TextSize = 22
 Btn.AutoButtonColor = true
 
--- Trang trí: Bo góc và tạo viền sáng
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = Btn
@@ -142,9 +157,6 @@ UIStroke.Thickness = 1.5
 UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke.Parent = Btn
 
--- ==========================================
--- LOGIC KÉO THẢ (DRAGGABLE)
--- ==========================================
 local dragging, dragInput, dragStart, startPos
 
 local function update(input)
@@ -178,23 +190,21 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ==========================================
--- LOGIC CLICK ĐỂ BẬT/TẮT BẢNG NTHUC HUB
--- ==========================================
 local clickTime = 0
 Btn.MouseButton1Down:Connect(function()
-    clickTime = tick() -- Bắt đầu đếm thời gian khi ấn chuột xuống
+    clickTime = tick()
 end)
 
 Btn.MouseButton1Up:Connect(function()
-    -- Chỉ kích hoạt nếu thời gian giữ chuột < 0.2 giây (Phân biệt giữa việc "Click" và việc "Nhấn giữ để Kéo thả")
     if tick() - clickTime < 0.2 then
-        -- Giả lập bấm phím LeftControl để gọi/ẩn bảng Fluent UI
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.LeftControl, false, game)
         task.wait(0.05)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.LeftControl, false, game)
     end
 end)
 
+-- ==========================================
+-- HOÀN TẤT & TẢI CONFIG CŨ
+-- ==========================================
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
