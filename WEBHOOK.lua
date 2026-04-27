@@ -8,25 +8,33 @@ local Config = {
 
 local LOGO_URL = "https://static.wikia.nocookie.net/blineage/images/e/e6/Site-logo.png/revision/latest?cb=20260310145648"
 
+-- Khai báo hàm hệ thống an toàn (phòng trường hợp executor dỏm không hỗ trợ)
+local isf = isfile or function() return false end
+local rnf = readfile or function() return "{}" end
+local wtf = writefile or function() end
+
 -- Chờ Data của nhân vật load xong
 LocalPlayer:WaitForChild("PlayerData", 9e9)
 
 local function GetPlayerData()
     local data = {
-        Name   = LocalPlayer.Name,
-        Level  = 0,
-        Stand  = "None",
-        Tokens = {}
+        Name      = LocalPlayer.Name,
+        Level     = 0,
+        Stand     = "None",
+        Tokens    = {},
+        Inventory = {}
     }
 
     local pData = LocalPlayer:FindFirstChild("PlayerData")
     if pData and pData:FindFirstChild("SlotData") then
         local slot = pData.SlotData
 
+        -- 1. Lấy Level
         if slot:FindFirstChild("Level") then
             data.Level = slot.Level.Value
         end
 
+        -- 2. Lấy Stand
         if slot:FindFirstChild("Stand") then
             local standStr = tostring(slot.Stand.Value)
             local ok, decoded = pcall(HttpService.JSONDecode, HttpService, standStr)
@@ -37,6 +45,7 @@ local function GetPlayerData()
             end
         end
 
+        -- 3. Lấy Raid Tokens
         if slot:FindFirstChild("RaidTokens") then
             local tokenStr = tostring(slot.RaidTokens.Value)
             local ok, decoded = pcall(HttpService.JSONDecode, HttpService, tokenStr)
@@ -44,34 +53,91 @@ local function GetPlayerData()
                 data.Tokens = decoded
             end
         end
+
+        -- 4. Lấy Inventory (Kho đồ)
+        if slot:FindFirstChild("Inventory") then
+            local invStr = tostring(slot.Inventory.Value)
+            local ok, decoded = pcall(HttpService.JSONDecode, HttpService, invStr)
+            if ok and type(decoded) == "table" then
+                -- Quét linh hoạt đề phòng game dùng định dạng Mảng hoặc Dictionary
+                for k, v in pairs(decoded) do
+                    if type(v) == "number" then
+                        data.Inventory[k] = v
+                    elseif type(v) == "table" and v.Name and v.Amount then
+                        data.Inventory[v.Name] = v.Amount
+                    end
+                end
+            end
+        end
     end
 
     return data
+end
+
+local function ProcessInventoryDiff(currentInv)
+    local fileName = "NthucHub_Inv_" .. LocalPlayer.Name .. ".json"
+    local diffText = ""
+    local newItemsCount = 0
+
+    if isf(fileName) then
+        -- Lấy file cũ ra đọc
+        local ok, savedData = pcall(function() return HttpService:JSONDecode(rnf(fileName)) end)
+        if ok and type(savedData) == "table" then
+            for itemName, currentAmount in pairs(currentInv) do
+                local oldAmount = savedData[itemName] or 0
+                -- Nếu số lượng tăng lên, ghi vào báo cáo
+                if currentAmount > oldAmount then
+                    diffText = diffText .. string.format("• **%s:** `+%d`\n", itemName, currentAmount - oldAmount)
+                    newItemsCount = newItemsCount + 1
+                end
+            end
+        end
+        if newItemsCount == 0 then
+            diffText = "*Không nhận thêm item mới nào.*"
+        end
+    else
+        -- Nếu chưa có file (lần đầu chạy), báo tạo mốc
+        diffText = "*Lần đầu khởi chạy! Đã thiết lập mốc dữ liệu gốc.*"
+    end
+
+    -- Lưu kho đồ hiện tại đè lên file cũ để làm mốc cho lần sau
+    pcall(function()
+        wtf(fileName, HttpService:JSONEncode(currentInv))
+    end)
+
+    return diffText
 end
 
 local function SendWebhook()
     if Config.WebhookURL == "" then return end
 
     local data = GetPlayerData()
+    
+    -- Xử lý chuỗi Raid Tokens
     local tokensStr = ""
     for name, amt in pairs(data.Tokens) do
         tokensStr = tokensStr .. string.format("**%s:** %d\n", name, amt)
     end
     if tokensStr == "" then tokensStr = "*Không có token nào.*" end
 
+    -- Xử lý chuỗi Inventory Diff (Đồ mới)
+    local newItemsStr = ProcessInventoryDiff(data.Inventory)
+
+    -- Cấu trúc Webhook
     local embedData = {
         username   = "Nthuc Hub Auto",
         avatar_url = LOGO_URL,
         embeds = {{
             title       = "📊 Nthuc Hub · Autoexec Report",
-            description = string.format("Tài khoản vừa tham gia máy chủ lúc <t:%d:F>", os.time()),
+            description = string.format("Báo cáo tài khoản lúc <t:%d:F>", os.time()),
             color       = 0x7B68EE,
             thumbnail   = { url = LOGO_URL },
             fields = {
-                { name = "👤 Tên Người Chơi", value = string.format("`%s`", data.Name),        inline = true  },
-                { name = "⭐ Level",          value = string.format("`%s`", tostring(data.Level)), inline = true  },
-                { name = "🛡️ Stand",         value = string.format("`%s`", data.Stand),        inline = false },
-                { name = "💰 Raid Tokens",     value = tokensStr,                                inline = false }
+                { name = "👤 Người Chơi",   value = string.format("`%s`", data.Name),        inline = true  },
+                { name = "⭐ Level",        value = string.format("`%s`", tostring(data.Level)), inline = true  },
+                { name = "🛡️ Stand",       value = string.format("`%s`", data.Stand),        inline = false },
+                { name = "💰 Raid Tokens",   value = tokensStr,                                inline = false },
+                { name = "🎁 Items (New)",   value = newItemsStr,                              inline = false }
             },
             footer = { text = "Nthuc Hub  •  Silent Autoexec", icon_url = LOGO_URL },
             timestamp = DateTime.now():ToIsoDate()
