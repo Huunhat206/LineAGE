@@ -176,34 +176,42 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- VÒNG LẶP AUTO SKILL
+-- ==========================================
+-- VÒNG LẶP AUTO SKILL (DÙNG ĐÚNG REMOTE CỦA BẠN)
+-- ==========================================
 task.spawn(function()
     while task.wait(0.5) do
         if Config.AutoFarm and Config.AutoSkill then
-            local character = LocalPlayer.Character
-            local controller = character and character:FindFirstChild("client_character_controller")
-            
-            if controller and controller:FindFirstChild("Skill") then
-                for skillKey, isSelected in pairs(Config.Skills) do
-                    if isSelected then
-                        print("[Nthuc Hub] Đang xả skill: " .. tostring(skillKey))
-                        
-                        local success, err = pcall(function()
-                            controller.Skill:FireServer(skillKey, true)
-                        end)
-                        
-                        if not success then
-                            warn("[Nthuc Hub] Bị lỗi ở skill " .. skillKey .. ": " .. tostring(err))
+            -- Lấy đúng đường dẫn theo cấu trúc của bạn
+            local character = game:GetService("Players").LocalPlayer.Character
+            if character then
+                local controller = character:FindFirstChild("client_character_controller")
+                
+                if controller then
+                    -- Quét các skill bạn đang tick chọn trong Menu
+                    for skillKey, isSelected in pairs(Config.Skills) do
+                        if isSelected then
+                            local skillRemote = controller:FindFirstChild("Skill")
+                            
+                            if skillRemote then
+                                -- Dùng đúng form args của bạn, KHÔNG bọc pcall nữa để executor không bị lỗi ngầm
+                                local args = {
+                                    skillKey,
+                                    true
+                                }
+                                
+                                skillRemote:FireServer(unpack(args))
+                            end
+                            
+                            -- Delay 0.5s giữa các lần tung chiêu để server nhận diện kịp
+                            task.wait(0.5) 
                         end
-                        
-                        task.wait(0.3) 
                     end
                 end
             end
         end
     end
 end)
-
 -- VÒNG LẶP AUTO STAND
 task.spawn(function()
     while task.wait(1.5) do
