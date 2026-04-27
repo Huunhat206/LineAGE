@@ -1,4 +1,3 @@
--- Nhận biến Fluent và Window từ GUI.lua truyền sang
 local Fluent, Window = ...
 
 -- 1. Khởi tạo Tab Auto Farm
@@ -10,10 +9,11 @@ local Tabs = {
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local NpcsFolder = workspace:WaitForChild("Npcs", 9e9)
+
+-- [ĐÃ FIX] Trỏ vào thư mục Live thay vì Npcs
+local LiveFolder = workspace:WaitForChild("Live", 9e9)
 local EffectsFolder = workspace:WaitForChild("Effects", 9e9)
 
--- Bảng lưu trữ cấu hình (Để truyền dữ liệu giữa UI và Vòng lặp)
 local Config = {
     AutoFarm = false,
     SelectedMob = nil,
@@ -24,17 +24,35 @@ local Config = {
     OffsetZ = 0,
     AutoStand = false,
     AutoSkill = false,
-    Skills = {} -- Lưu các skill được chọn
+    Skills = {} 
 }
 
--- Hàm quét lấy tên NPC (lọc trùng lặp)
+-- ==========================================
+-- HÀM XỬ LÝ TÊN QUÁI VẬT (Lọc bỏ ID và dấu chấm)
+-- ==========================================
+local function GetBaseName(rawName)
+    -- Xóa dấu chấm "." ở đầu nếu có
+    local name = string.gsub(rawName, "^%.", "")
+    
+    -- Xóa 6 ký tự ID ngẫu nhiên ở cuối (Dựa theo ảnh của bạn, ID luôn dài 6 ký tự)
+    if #name > 6 then
+        name = string.sub(name, 1, -7)
+    end
+    
+    return name
+end
+
+-- Hàm quét lấy tên NPC gốc (đã gộp)
 local function GetNpcList()
     local list = {}
     local seen = {}
-    for _, npc in ipairs(NpcsFolder:GetChildren()) do
-        if npc:IsA("Model") and npc.Name ~= "" and not seen[npc.Name] then
-            table.insert(list, npc.Name)
-            seen[npc.Name] = true
+    for _, npc in ipairs(LiveFolder:GetChildren()) do
+        if npc:IsA("Model") and npc.Name ~= "" then
+            local baseName = GetBaseName(npc.Name)
+            if not seen[baseName] then
+                table.insert(list, baseName)
+                seen[baseName] = true
+            end
         end
     end
     return list
@@ -44,7 +62,7 @@ end
 -- GIAO DIỆN NGƯỜI DÙNG (UI)
 -- ==========================================
 
--- [PHẦN 1] Chọn Quái & Auto Farm
+-- [PHẦN 1] Chọn Quái
 local NpcList = GetNpcList()
 local Dropdown_Mob = Tabs.Farm:AddDropdown("Dropdown_Mob", {
     Title = "Chọn Quái (Select Mob)",
@@ -72,8 +90,8 @@ Tabs.Farm:AddToggle("Toggle_AutoFarm", {
     end
 })
 
--- [PHẦN 2] Cấu hình Tọa Độ (Position)
-local SectionPos = Tabs.Farm:AddSection("Cài đặt Tọa Độ (Position Settings)")
+-- [PHẦN 2] Cấu hình Tọa Độ bằng THANH TRƯỢT
+local SectionPos = Tabs.Farm:AddSection("Cài đặt Tọa Độ (Position)")
 
 Tabs.Farm:AddDropdown("Dropdown_Pos", {
     Title = "Vị trí Đứng",
@@ -85,92 +103,78 @@ Tabs.Farm:AddDropdown("Dropdown_Pos", {
     end
 })
 
-Tabs.Farm:AddInput("Input_Distance", {
+Tabs.Farm:AddSlider("Slider_Distance", {
     Title = "Khoảng cách (Distance)",
-    Default = "5",
-    Numeric = true,
-    Finished = true,
-    Callback = function(Value)
-        Config.Distance = tonumber(Value) or 5
-    end
+    Default = 5,
+    Min = 0,
+    Max = 30,
+    Rounding = 1,
+    Callback = function(Value) Config.Distance = Value end
 })
 
-Tabs.Farm:AddInput("Input_OffsetX", { Title = "Offset X", Default = "0", Numeric = true, Finished = true, Callback = function(Value) Config.OffsetX = tonumber(Value) or 0 end })
-Tabs.Farm:AddInput("Input_OffsetY", { Title = "Offset Y", Default = "0", Numeric = true, Finished = true, Callback = function(Value) Config.OffsetY = tonumber(Value) or 0 end })
-Tabs.Farm:AddInput("Input_OffsetZ", { Title = "Offset Z", Default = "0", Numeric = true, Finished = true, Callback = function(Value) Config.OffsetZ = tonumber(Value) or 0 end })
+Tabs.Farm:AddSlider("Slider_OffsetX", { Title = "Offset X", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetX = Value end })
+Tabs.Farm:AddSlider("Slider_OffsetY", { Title = "Offset Y", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetY = Value end })
+Tabs.Farm:AddSlider("Slider_OffsetZ", { Title = "Offset Z", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetZ = Value end })
 
--- [PHẦN 3] Auto Stand
-local SectionStand = Tabs.Farm:AddSection("Tự động gọi Stand")
+-- [PHẦN 3] Auto Stand & Skill
+local SectionStand = Tabs.Farm:AddSection("Chiến đấu (Combat)")
 
-Tabs.Farm:AddToggle("Toggle_AutoStand", {
-    Title = "Bật Auto Stand",
-    Default = false,
-    Callback = function(Value)
-        Config.AutoStand = Value
-    end
-})
-
--- [PHẦN 4] Auto Skill
-local SectionSkill = Tabs.Farm:AddSection("Tự động dùng Kỹ năng (Auto Skill)")
-
-Tabs.Farm:AddToggle("Toggle_AutoSkill", {
-    Title = "Bật Auto Skill",
-    Default = false,
-    Callback = function(Value)
-        Config.AutoSkill = Value
-    end
-})
+Tabs.Farm:AddToggle("Toggle_AutoStand", { Title = "Bật Auto Stand", Default = false, Callback = function(Value) Config.AutoStand = Value end })
+Tabs.Farm:AddToggle("Toggle_AutoSkill", { Title = "Bật Auto Skill", Default = false, Callback = function(Value) Config.AutoSkill = Value end })
 
 local Dropdown_Skill = Tabs.Farm:AddDropdown("Dropdown_Skill", {
     Title = "Chọn Skill",
-    Description = "Có thể chọn nhiều skill cùng lúc (Toggle)",
     Values = {"E", "R", "Z", "X", "C", "V"},
     Multi = true,
     Default = {},
 })
 
 Dropdown_Skill:OnChanged(function(Value)
-    -- Value trả về dạng bảng: {E = true, Z = true, C = true}
     Config.Skills = Value
 end)
 
-
 -- ==========================================
--- LOGIC XỬ LÝ CHÍNH (BACKEND)
+-- LOGIC XỬ LÝ CHÍNH
 -- ==========================================
 
--- Hàm tìm quái vật gần nhất/còn sống dựa trên tên đã chọn
+-- [ĐÃ FIX] Tìm mục tiêu dựa trên tên gốc thay vì tên nguyên bản
 local function GetTarget()
     if not Config.SelectedMob then return nil end
-    for _, npc in ipairs(NpcsFolder:GetChildren()) do
-        if npc.Name == Config.SelectedMob and npc:FindFirstChild("HumanoidRootPart") then
-            local humanoid = npc:FindFirstChild("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                return npc
+    for _, npc in ipairs(LiveFolder:GetChildren()) do
+        if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+            -- Chuyển tên thực tế thành tên gốc để so sánh
+            local baseName = GetBaseName(npc.Name)
+            
+            if baseName == Config.SelectedMob then
+                local humanoid = npc:FindFirstChild("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    return npc
+                end
             end
         end
     end
     return nil
 end
 
--- Hàm tính toán CFrame kết hợp Giữa Mode (Sau/Trên/Dưới), Khoảng cách và Offset X,Y,Z
 local function CalculateCFrame(targetCFrame)
-    local baseCFrame = targetCFrame
-    local dist = Config.Distance
+    local targetPos = targetCFrame.Position
+    local offsetCFrame = CFrame.new()
     
     if Config.PositionMode == "Behind" then
-        baseCFrame = targetCFrame * CFrame.new(0, 0, dist)
+        offsetCFrame = CFrame.new(0, 0, Config.Distance)
     elseif Config.PositionMode == "Upper" then
-        baseCFrame = targetCFrame * CFrame.new(0, dist, 0)
+        offsetCFrame = CFrame.new(0, Config.Distance, 0)
     elseif Config.PositionMode == "Under" then
-        baseCFrame = targetCFrame * CFrame.new(0, -dist, 0)
+        offsetCFrame = CFrame.new(0, -Config.Distance, 0)
     end
     
-    -- Áp dụng thêm Offset X, Y, Z tùy chỉnh
-    return baseCFrame * CFrame.new(Config.OffsetX, Config.OffsetY, Config.OffsetZ)
+    offsetCFrame = offsetCFrame * CFrame.new(Config.OffsetX, Config.OffsetY, Config.OffsetZ)
+    local finalPos = (targetCFrame * offsetCFrame).Position
+    
+    return CFrame.lookAt(finalPos, targetPos)
 end
 
--- [VÒNG LẶP CHÍNH] Xử lý Auto Farm, M1 và Skill (Chạy liên tục theo Frame)
+-- VÒNG LẶP AUTO FARM VÀ M1
 RunService.Heartbeat:Connect(function()
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -181,25 +185,33 @@ RunService.Heartbeat:Connect(function()
     if Config.AutoFarm then
         local target = GetTarget()
         if target then
-            -- 1. Auto Teleport
             hrp.CFrame = CalculateCFrame(target.HumanoidRootPart.CFrame)
             
-            if controller then
-                -- 2. Auto M1
-                if controller:FindFirstChild("M1") then
-                    pcall(function()
-                        controller.M1:FireServer(true, false)
-                    end)
-                end
-                
-                -- 3. Auto Skill (Vừa đánh vừa xả skill)
-                if Config.AutoSkill and controller:FindFirstChild("Skill") then
-                    for skillKey, isSelected in pairs(Config.Skills) do
-                        if isSelected then
-                            pcall(function()
-                                controller.Skill:FireServer(skillKey, true)
-                            end)
-                        end
+            if controller and controller:FindFirstChild("M1") then
+                pcall(function()
+                    local args = {true, false}
+                    controller.M1:FireServer(unpack(args))
+                end)
+            end
+        end
+    end
+end)
+
+-- VÒNG LẶP AUTO SKILL
+task.spawn(function()
+    while task.wait(0.2) do
+        if Config.AutoFarm and Config.AutoSkill then
+            local character = LocalPlayer.Character
+            local controller = character and character:FindFirstChild("client_character_controller")
+            
+            if controller and controller:FindFirstChild("Skill") then
+                for skillKey, isSelected in pairs(Config.Skills) do
+                    if isSelected then
+                        pcall(function()
+                            local args = {skillKey, true}
+                            controller.Skill:FireServer(unpack(args))
+                        end)
+                        task.wait(0.1) 
                     end
                 end
             end
@@ -207,20 +219,16 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- [VÒNG LẶP PHỤ] Xử lý Auto Stand (Chạy chậm hơn để đỡ Lag / Check thi thoảng)
+-- VÒNG LẶP AUTO STAND
 task.spawn(function()
-    while task.wait(1.5) do -- Cứ 1.5 giây check 1 lần
+    while task.wait(1.5) do
         if Config.AutoStand then
             local character = LocalPlayer.Character
             if character then
                 local controller = character:FindFirstChild("client_character_controller")
-                
-                -- Tạo chuỗi tìm tên Stand chính xác theo người chơi
                 local standModelName = "." .. LocalPlayer.Name .. "'s Stand"
                 
-                -- Quét trong workspace.Effects
                 if not EffectsFolder:FindFirstChild(standModelName) then
-                    -- Nếu không tìm thấy Stand -> Gọi Stand
                     if controller and controller:FindFirstChild("SummonStand") then
                         pcall(function()
                             controller.SummonStand:FireServer()
