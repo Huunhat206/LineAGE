@@ -127,12 +127,12 @@ bgGradient.Parent   = BlackBG
 local Card = Instance.new("Frame")
 Card.AnchorPoint      = Vector2.new(0.5, 0.5)
 Card.Position         = UDim2.new(0.5, 0, 0.5, 0)
-Card.Size             = UDim2.new(0, 320, 0, 440)
+Card.Size             = UDim2.new(0, 280, 0, 340) -- ĐÃ THU NHỎ SIZE CHO MOBILE
 Card.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
 Card.Parent           = BlackBG
 
-Instance.new("UISizeConstraint", Card).MaxSize = Vector2.new(340, 460)
-Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 18)
+Instance.new("UISizeConstraint", Card).MaxSize = Vector2.new(280, 340)
+Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 14)
 
 local cardStroke = Instance.new("UIStroke")
 cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -141,10 +141,10 @@ cardStroke.Thickness       = 1.5
 cardStroke.Parent          = Card
 
 local HeaderBar = Instance.new("Frame")
-HeaderBar.Size             = UDim2.new(1, 0, 0, 56)
+HeaderBar.Size             = UDim2.new(1, 0, 0, 45)
 HeaderBar.BackgroundColor3 = Color3.fromRGB(30, 20, 55)
 HeaderBar.Parent           = Card
-Instance.new("UICorner", HeaderBar).CornerRadius = UDim.new(0, 18)
+Instance.new("UICorner", HeaderBar).CornerRadius = UDim.new(0, 14)
 
 local headerPatch = Instance.new("Frame")
 headerPatch.Size             = UDim2.new(1, 0, 0.5, 0)
@@ -163,29 +163,29 @@ headerGrad.Parent   = HeaderBar
 
 local HeaderTitle = Instance.new("TextLabel")
 HeaderTitle.Size               = UDim2.new(1, -50, 1, 0)
-HeaderTitle.Position           = UDim2.new(0, 15, 0, 0)
+HeaderTitle.Position           = UDim2.new(0, 12, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text               = "NTHUC HUB (AFK MODE)"
+HeaderTitle.Text               = "NTHUC HUB (AFK)"
 HeaderTitle.Font               = Enum.Font.GothamBold
-HeaderTitle.TextSize           = 14
+HeaderTitle.TextSize           = 12
 HeaderTitle.TextColor3         = Color3.fromRGB(220, 200, 255)
 HeaderTitle.TextXAlignment     = Enum.TextXAlignment.Left
 HeaderTitle.Parent             = HeaderBar
 
 local LiveBadge = Instance.new("Frame")
-LiveBadge.Size             = UDim2.new(0, 48, 0, 20)
+LiveBadge.Size             = UDim2.new(0, 40, 0, 16)
 LiveBadge.AnchorPoint      = Vector2.new(1, 0.5)
-LiveBadge.Position         = UDim2.new(1, -45, 0.5, 0)
+LiveBadge.Position         = UDim2.new(1, -35, 0.5, 0)
 LiveBadge.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 LiveBadge.Parent           = HeaderBar
-Instance.new("UICorner", LiveBadge).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", LiveBadge).CornerRadius = UDim.new(0, 4)
 
 local LiveText = Instance.new("TextLabel")
 LiveText.Size               = UDim2.new(1, 0, 1, 0)
 LiveText.BackgroundTransparency = 1
 LiveText.Text               = "● LIVE"
 LiveText.Font               = Enum.Font.GothamBold
-LiveText.TextSize           = 10
+LiveText.TextSize           = 9
 LiveText.TextColor3         = Color3.fromRGB(255, 255, 255)
 LiveText.Parent             = LiveBadge
 
@@ -199,15 +199,15 @@ task.spawn(function()
 end)
 
 local AvatarRing = Instance.new("Frame")
-AvatarRing.Size             = UDim2.new(0, 86, 0, 86)
+AvatarRing.Size             = UDim2.new(0, 64, 0, 64)
 AvatarRing.AnchorPoint      = Vector2.new(0.5, 0)
-AvatarRing.Position         = UDim2.new(0.5, 0, 0, 62)
+AvatarRing.Position         = UDim2.new(0.5, 0, 0, 55)
 AvatarRing.BackgroundColor3 = Color3.fromRGB(110, 80, 200)
 AvatarRing.Parent           = Card
 Instance.new("UICorner", AvatarRing).CornerRadius = UDim.new(1, 0)
 
 local AvatarImg = Instance.new("ImageLabel")
-AvatarImg.Size             = UDim2.new(0, 78, 0, 78)
+AvatarImg.Size             = UDim2.new(0, 58, 0, 58)
 AvatarImg.AnchorPoint      = Vector2.new(0.5, 0.5)
 AvatarImg.Position         = UDim2.new(0.5, 0, 0.5, 0)
 AvatarImg.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
@@ -216,19 +216,19 @@ AvatarImg.Parent           = AvatarRing
 Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
 
 local InfoText = Instance.new("TextLabel")
-InfoText.Size               = UDim2.new(1, -24, 0, 70)
-InfoText.Position           = UDim2.new(0, 12, 0, 155)
+InfoText.Size               = UDim2.new(1, -20, 0, 55)
+InfoText.Position           = UDim2.new(0, 10, 0, 125)
 InfoText.BackgroundTransparency = 1
 InfoText.Font               = Enum.Font.GothamSemibold
-InfoText.TextSize           = 13
+InfoText.TextSize           = 12
 InfoText.TextColor3         = Color3.fromRGB(220, 210, 255)
 InfoText.TextYAlignment     = Enum.TextYAlignment.Top
 InfoText.RichText           = true
 InfoText.Parent             = Card
 
 local Divider = Instance.new("Frame")
-Divider.Size             = UDim2.new(1, -24, 0, 1)
-Divider.Position         = UDim2.new(0, 12, 0, 230)
+Divider.Size             = UDim2.new(1, -20, 0, 1)
+Divider.Position         = UDim2.new(0, 10, 0, 185)
 Divider.BackgroundColor3 = Color3.fromRGB(60, 50, 90)
 Divider.Parent           = Card
 
@@ -241,24 +241,24 @@ dividerGrad.Color = ColorSequence.new({
 dividerGrad.Parent = Divider
 
 local TokensTitle = Instance.new("TextLabel")
-TokensTitle.Size               = UDim2.new(1, -24, 0, 22)
-TokensTitle.Position           = UDim2.new(0, 12, 0, 238)
+TokensTitle.Size               = UDim2.new(1, -20, 0, 20)
+TokensTitle.Position           = UDim2.new(0, 10, 0, 190)
 TokensTitle.BackgroundTransparency = 1
 TokensTitle.Text               = "💰 RAID TOKENS"
 TokensTitle.Font               = Enum.Font.GothamBold
-TokensTitle.TextSize           = 11
+TokensTitle.TextSize           = 10
 TokensTitle.TextColor3         = Color3.fromRGB(150, 120, 220)
 TokensTitle.TextXAlignment     = Enum.TextXAlignment.Left
 TokensTitle.Parent             = Card
 
 local TokenList = Instance.new("ScrollingFrame")
-TokenList.Size                 = UDim2.new(1, -24, 0, 148)
-TokenList.Position             = UDim2.new(0, 12, 0, 264)
+TokenList.Size                 = UDim2.new(1, -20, 1, -220)
+TokenList.Position             = UDim2.new(0, 10, 0, 210)
 TokenList.BackgroundColor3     = Color3.fromRGB(20, 16, 32)
-TokenList.ScrollBarThickness   = 3
+TokenList.ScrollBarThickness   = 2
 TokenList.ScrollBarImageColor3 = Color3.fromRGB(110, 80, 200)
 TokenList.Parent               = Card
-Instance.new("UICorner", TokenList).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", TokenList).CornerRadius = UDim.new(0, 6)
 
 local listLayout = Instance.new("UIListLayout")
 listLayout.Padding   = UDim.new(0, 4)
@@ -266,23 +266,23 @@ listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 listLayout.Parent    = TokenList
 
 local listPadding = Instance.new("UIPadding")
-listPadding.PaddingLeft   = UDim.new(0, 8)
-listPadding.PaddingTop    = UDim.new(0, 6)
-listPadding.PaddingBottom = UDim.new(0, 6)
+listPadding.PaddingLeft   = UDim.new(0, 6)
+listPadding.PaddingTop    = UDim.new(0, 4)
+listPadding.PaddingBottom = UDim.new(0, 4)
 listPadding.Parent        = TokenList
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size             = UDim2.new(0, 28, 0, 28)
+CloseBtn.Size             = UDim2.new(0, 24, 0, 24)
 CloseBtn.AnchorPoint      = Vector2.new(1, 0)
-CloseBtn.Position         = UDim2.new(1, -10, 0, 10)
+CloseBtn.Position         = UDim2.new(1, -8, 0, 8)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 CloseBtn.Text             = "X"
 CloseBtn.Font             = Enum.Font.GothamBold
 CloseBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize         = 13
+CloseBtn.TextSize         = 12
 CloseBtn.ZIndex           = 10
 CloseBtn.Parent           = Card
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
 CloseBtn.MouseEnter:Connect(function()
     TweenService:Create(CloseBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(220, 60, 60) }):Play()
@@ -313,13 +313,13 @@ local function UpdateBlackScreen()
     for tokenName, amount in pairs(data.Tokens) do
         hasTokens = true
         local row = Instance.new("Frame")
-        row.Size             = UDim2.new(1, -6, 0, 24)
+        row.Size             = UDim2.new(1, -6, 0, 20)
         row.BackgroundColor3 = Color3.fromRGB(35, 28, 55)
         row.Parent           = TokenList
-        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
 
         local dot = Instance.new("Frame")
-        dot.Size             = UDim2.new(0, 6, 0, 6)
+        dot.Size             = UDim2.new(0, 5, 0, 5)
         dot.AnchorPoint      = Vector2.new(0, 0.5)
         dot.Position         = UDim2.new(0, 6, 0.5, 0)
         dot.BackgroundColor3 = Color3.fromRGB(130, 100, 220)
@@ -327,11 +327,11 @@ local function UpdateBlackScreen()
         Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 
         local lbl = Instance.new("TextLabel")
-        lbl.Size               = UDim2.new(1, -18, 1, 0)
-        lbl.Position           = UDim2.new(0, 16, 0, 0)
+        lbl.Size               = UDim2.new(1, -16, 1, 0)
+        lbl.Position           = UDim2.new(0, 14, 0, 0)
         lbl.BackgroundTransparency = 1
         lbl.Font               = Enum.Font.Gotham
-        lbl.TextSize           = 12
+        lbl.TextSize           = 11
         lbl.TextColor3         = Color3.fromRGB(200, 190, 230)
         lbl.TextXAlignment     = Enum.TextXAlignment.Left
         lbl.Text               = string.format("%s: %d", tokenName, amount)
@@ -340,22 +340,22 @@ local function UpdateBlackScreen()
 
     if not hasTokens then
         local emptyLbl = Instance.new("Frame")
-        emptyLbl.Size             = UDim2.new(1, -6, 0, 24)
+        emptyLbl.Size             = UDim2.new(1, -6, 0, 20)
         emptyLbl.BackgroundColor3 = Color3.fromRGB(35, 28, 55)
         emptyLbl.Parent           = TokenList
-        Instance.new("UICorner", emptyLbl).CornerRadius = UDim.new(0, 6)
+        Instance.new("UICorner", emptyLbl).CornerRadius = UDim.new(0, 4)
 
         local t = Instance.new("TextLabel")
         t.Size               = UDim2.new(1, 0, 1, 0)
         t.BackgroundTransparency = 1
         t.Text               = "Không có raid token"
         t.Font               = Enum.Font.Gotham
-        t.TextSize           = 12
+        t.TextSize           = 11
         t.TextColor3         = Color3.fromRGB(120, 110, 150)
         t.Parent             = emptyLbl
     end
 
-    TokenList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 12)
+    TokenList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 8)
 end
 
 pcall(function() RunService:Set3dRenderingEnabled(false) end)
