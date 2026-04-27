@@ -13,9 +13,6 @@ local HttpService    = game:GetService("HttpService")
 local TweenService   = game:GetService("TweenService")
 local LocalPlayer    = Players.LocalPlayer
 
--- ÉP BẬT LẠI 3D RENDER NGAY TỪ ĐẦU (Chống lỗi Fluent tự load config cũ làm đen màn hình)
-pcall(function() RunService:Set3dRenderingEnabled(true) end)
-
 local Config = {
     WebhookURL    = "",
     BlackScreen   = false,
@@ -162,7 +159,7 @@ local BlackScreenGui = Instance.new("ScreenGui")
 BlackScreenGui.Name           = "NthucHub_BlackScreen"
 BlackScreenGui.DisplayOrder   = 999998
 BlackScreenGui.IgnoreGuiInset = true
-BlackScreenGui.Enabled        = false -- Ẩn mặc định
+BlackScreenGui.Enabled        = false
 BlackScreenGui.Parent         = guiTarget
 
 -- ── Nền tối ──────────────────────────────────────────────────────────────────
@@ -170,10 +167,9 @@ local BlackBG = Instance.new("Frame")
 BlackBG.Name            = "Background"
 BlackBG.Size            = UDim2.new(1, 0, 1, 0)
 BlackBG.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
-BlackBG.Visible         = false -- Ẩn mặc định để an toàn
+BlackBG.Visible         = false
 BlackBG.Parent          = BlackScreenGui
 
--- Gradient nền nhẹ
 local bgGradient = Instance.new("UIGradient")
 bgGradient.Color    = ColorSequence.new({
     ColorSequenceKeypoint.new(0,   Color3.fromRGB(8, 8, 18)),
@@ -200,7 +196,6 @@ local cardCorner = Instance.new("UICorner")
 cardCorner.CornerRadius = UDim.new(0, 18)
 cardCorner.Parent       = Card
 
--- Viền gradient màu
 local cardStroke = Instance.new("UIStroke")
 cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 cardStroke.Color            = Color3.fromRGB(110, 80, 200)
@@ -217,7 +212,6 @@ local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 18)
 headerCorner.Parent       = HeaderBar
 
--- Patch để corner chỉ bo góc trên
 local headerPatch = Instance.new("Frame")
 headerPatch.Size             = UDim2.new(1, 0, 0.5, 0)
 headerPatch.Position         = UDim2.new(0, 0, 0.5, 0)
@@ -237,7 +231,7 @@ local HeaderTitle = Instance.new("TextLabel")
 HeaderTitle.Size                = UDim2.new(1, -50, 1, 0)
 HeaderTitle.Position            = UDim2.new(0, 15, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text                = "NTHUC HUB" -- FIX LỖI Ô VUÔNG: Đã xóa icon lạ
+HeaderTitle.Text                = "NTHUC HUB"
 HeaderTitle.Font                = Enum.Font.GothamBold
 HeaderTitle.TextSize            = 16
 HeaderTitle.TextColor3          = Color3.fromRGB(220, 200, 255)
@@ -248,7 +242,7 @@ HeaderTitle.Parent              = HeaderBar
 local LiveBadge = Instance.new("Frame")
 LiveBadge.Size             = UDim2.new(0, 48, 0, 20)
 LiveBadge.AnchorPoint      = Vector2.new(1, 0.5)
-LiveBadge.Position         = UDim2.new(1, -45, 0.5, 0) -- FIX GIAO DIỆN: Đẩy sang trái để không đè lên nút X
+LiveBadge.Position         = UDim2.new(1, -45, 0.5, 0)
 LiveBadge.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 LiveBadge.Parent           = HeaderBar
 Instance.new("UICorner", LiveBadge).CornerRadius = UDim.new(0, 6)
@@ -262,9 +256,8 @@ LiveText.TextSize               = 10
 LiveText.TextColor3             = Color3.fromRGB(255, 255, 255)
 LiveText.Parent                 = LiveBadge
 
--- Nhấp nháy LIVE
 task.spawn(function()
-    while true do -- Đã sửa logic chạy liên tục không phụ thuộc để tránh lỗi crash thread
+    while true do
         if BlackScreenGui.Enabled then
             TweenService:Create(LiveBadge, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                 BackgroundColor3 = Color3.fromRGB(255, 80, 80)
@@ -310,7 +303,6 @@ InfoText.TextYAlignment         = Enum.TextYAlignment.Top
 InfoText.RichText               = true
 InfoText.Parent                 = Card
 
--- Divider
 local Divider = Instance.new("Frame")
 Divider.Size             = UDim2.new(1, -24, 0, 1)
 Divider.Position         = UDim2.new(0, 12, 0, 230)
@@ -336,7 +328,7 @@ TokensTitle.TextColor3             = Color3.fromRGB(150, 120, 220)
 TokensTitle.TextXAlignment         = Enum.TextXAlignment.Left
 TokensTitle.Parent                 = Card
 
--- ── Token List (scroll) ──────────────────────────────────────────────────────
+-- ── Token List ──────────────────────────────────────────────────────
 local TokenList = Instance.new("ScrollingFrame")
 TokenList.Size                 = UDim2.new(1, -24, 0, 148)
 TokenList.Position             = UDim2.new(0, 12, 0, 264)
@@ -363,7 +355,7 @@ CloseBtn.Size             = UDim2.new(0, 28, 0, 28)
 CloseBtn.AnchorPoint      = Vector2.new(1, 0)
 CloseBtn.Position         = UDim2.new(1, -10, 0, 10)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-CloseBtn.Text             = "X" -- FIX LỖI Ô VUÔNG: Đổi sang ký tự X thường
+CloseBtn.Text             = "X"
 CloseBtn.Font             = Enum.Font.GothamBold
 CloseBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
 CloseBtn.TextSize         = 13
@@ -378,7 +370,6 @@ CloseBtn.MouseLeave:Connect(function()
     TweenService:Create(CloseBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }):Play()
 end)
 
--- ── Cập nhật nội dung ────────────────────────────────────────────────────────
 local function UpdateBlackScreen()
     local data = GetPlayerData()
 
@@ -444,8 +435,7 @@ end
 -- GIAO DIỆN NTHUC HUB (TAB MISC)
 -- ==========================================
 
--- ── SECTION: Hiệu Năng ──────────────────────────────────────────────────────
-Tabs.Misc:AddSection("⚡ Tối Ưu Hiệu Năng")
+Tabs.Misc:AddSection("Tối Ưu Hiệu Năng")
 
 local Toggle_BlackScreen = Tabs.Misc:AddToggle("Toggle_BlackScreen", {
     Title       = "Bật Màn Hình Đen (Boost FPS)",
@@ -469,7 +459,6 @@ CloseBtn.MouseButton1Click:Connect(function()
     Toggle_BlackScreen:SetValue(false)
 end)
 
--- Cập nhật Black Screen định kỳ
 task.spawn(function()
     while task.wait(5) do
         if Config.BlackScreen then
@@ -492,9 +481,8 @@ Tabs.Misc:AddInput("Input_WebhookURL", {
     end
 })
 
--- Nút gửi thủ công
 Tabs.Misc:AddButton({
-    Title       = "📤 Gửi Báo Cáo Ngay",
+    Title       = "Gửi Báo Cáo Ngay",
     Description = "Gửi thông tin nhân vật lên Discord ngay lập tức",
     Callback    = function()
         SendWebhook(false)
@@ -502,7 +490,7 @@ Tabs.Misc:AddButton({
 })
 
 -- ── SECTION: Auto Webhook ────────────────────────────────────────────────────
-Tabs.Misc:AddSection("🔁 Tự Động Gửi Webhook")
+Tabs.Misc:AddSection("Tự Động Gửi Webhook")
 
 local Slider_Interval = Tabs.Misc:AddSlider("Slider_AutoInterval", {
     Title   = "Khoảng Thời Gian Gửi",
@@ -524,18 +512,13 @@ local Toggle_AutoWebhook = Tabs.Misc:AddToggle("Toggle_AutoWebhook", {
     Callback    = function(Value)
         Config.AutoWebhook = Value
         if Value then
-            Fluent:Notify({
-                Title   = "✅ Auto Webhook",
-                Content = string.format("Đã bật! Gửi mỗi %d phút.", Config.AutoInterval),
-                Duration = 3
-            })
+            Fluent:Notify({ Title = "Auto Webhook", Content = string.format("Đã bật! Gửi mỗi %d phút.", Config.AutoInterval), Duration = 3 })
         else
-            Fluent:Notify({ Title = "⏹️ Auto Webhook", Content = "Đã tắt tự động gửi.", Duration = 2 })
+            Fluent:Notify({ Title = "Auto Webhook", Content = "Đã tắt tự động gửi.", Duration = 2 })
         end
     end
 })
 
--- Vòng lặp auto webhook
 task.spawn(function()
     local elapsed = 0
     while task.wait(1) do
@@ -544,11 +527,7 @@ task.spawn(function()
             if elapsed >= Config.AutoInterval * 60 then
                 elapsed = 0
                 SendWebhook(true)
-                Fluent:Notify({
-                    Title   = "📡 Auto Webhook",
-                    Content = "Đã tự động gửi báo cáo lên Discord.",
-                    Duration = 2
-                })
+                Fluent:Notify({ Title = "📡 Auto Webhook", Content = "Đã tự động gửi báo cáo lên Discord.", Duration = 2 })
             end
         else
             elapsed = 0
@@ -557,80 +536,65 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- SECTION: FPS BOOST
+-- SECTION: FPS BOOST (ĐÃ FIX LỖI ĐEN MÀN HÌNH)
 -- ==========================================
-Tabs.Misc:AddSection("🚀 FPS & Hiệu Năng")
+Tabs.Misc:AddSection("FPS & Hiệu Năng")
 
--- ── Hàm áp dụng FPS Boost toàn diện ────────────────────────────────────────
 local fpsBoostActive = false
-local savedLOD       = Enum.QualityLevel.Automatic
-local savedShadow    = true
+local hiddenEffects = {} -- Chỉ lưu lại những hiệu ứng ta chủ động tắt đi
 
 local function ApplyFPSBoost(enable)
     fpsBoostActive = enable
+    local lighting = game:GetService("Lighting")
 
-    -- 1. Giới hạn FPS (dùng setfpscap nếu executor hỗ trợ)
-    pcall(function()
-        if setfpscap then
-            setfpscap(enable and Config.FPSLimit or 0)
-        end
-    end)
-
-    -- 2. Tắt/bật shadow toàn map
-    pcall(function()
-        local lighting = game:GetService("Lighting")
-        if enable then
-            savedShadow = lighting.GlobalShadows
+    if enable then
+        -- KHI BẬT: Lưu trữ các hiệu ứng đang hoạt động và tắt chúng
+        pcall(function()
+            for _, v in ipairs(lighting:GetChildren()) do
+                if v:IsA("PostEffect") and v.Enabled then
+                    hiddenEffects[v] = true
+                    v.Enabled = false
+                end
+            end
             lighting.GlobalShadows = false
-            lighting.FogEnd        = 1e9
-            lighting.Brightness    = 1
-        else
-            lighting.GlobalShadows = savedShadow
-        end
-    end)
-
-    -- 3. Chất lượng texture
-    pcall(function()
-        if enable then
-            savedLOD = settings().Rendering.QualityLevel
             settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        else
-            settings().Rendering.QualityLevel = savedLOD
-        end
-    end)
+        end)
+        
+        -- Chỉnh giới hạn FPS
+        pcall(function()
+            if setfpscap then setfpscap(Config.FPSLimit) end
+        end)
 
-    -- 4. Tắt tất cả PostProcessing effects trên Lighting
-    pcall(function()
-        local lighting = game:GetService("Lighting")
-        for _, v in ipairs(lighting:GetChildren()) do
-            if v:IsA("PostEffect") or v:IsA("Sky") then
-                v.Enabled = not enable
+        Fluent:Notify({ Title = "FPS Boost BẬT", Content = string.format("Đã tối ưu! FPS cap: %d", Config.FPSLimit), Duration = 3 })
+    else
+        -- KHI TẮT: Chỉ khôi phục những hiệu ứng đã bị tắt bởi Hub, KHÔNG đụng vào hiệu ứng ẩn của game
+        pcall(function()
+            for v, _ in pairs(hiddenEffects) do
+                if v and v.Parent then
+                    v.Enabled = true
+                end
             end
-        end
-    end)
+            table.clear(hiddenEffects) -- Xóa bộ nhớ đệm
+            
+            lighting.GlobalShadows = true
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+        end)
 
-    -- 5. Tắt particle / beam / trail trên toàn workspace (nhẹ hơn đáng kể)
-    pcall(function()
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("ParticleEmitter") or v:IsA("Beam") or v:IsA("Trail") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
-                v.Enabled = not enable
-            end
-        end
-    end)
+        -- Khôi phục giới hạn FPS
+        pcall(function()
+            if setfpscap then setfpscap(0) end
+        end)
 
-    Fluent:Notify({
-        Title   = enable and "🚀 FPS Boost BẬT" or "🔄 FPS Boost TẮT",
-        Content = enable
-            and string.format("Đã tối ưu! FPS cap: %d", Config.FPSLimit)
-            or  "Đã khôi phục cài đặt đồ họa.",
-        Duration = 3
-    })
+        -- Chặn thông báo lúc vừa load script
+        if fpsBoostActive ~= nil then
+            Fluent:Notify({ Title = "FPS Boost TẮT", Content = "Đã khôi phục cài đặt đồ họa gốc.", Duration = 3 })
+        end
+    end
 end
 
--- Slider chọn FPS cap
 Tabs.Misc:AddSlider("Slider_FPSCap", {
     Title       = "Giới Hạn FPS",
-    Description = "Chọn FPS tối đa khi FPS Boost bật (cần executor hỗ trợ setfpscap)",
+    Description = "Chọn FPS tối đa khi FPS Boost bật",
     Default     = 60,
     Min         = 30,
     Max         = 240,
@@ -639,20 +603,20 @@ Tabs.Misc:AddSlider("Slider_FPSCap", {
     Callback    = function(Value)
         Config.FPSLimit = Value
         if fpsBoostActive then
-            pcall(function()
-                if setfpscap then setfpscap(Value) end
-            end)
+            pcall(function() if setfpscap then setfpscap(Value) end end)
         end
     end
 })
 
--- Toggle FPS Boost
-Tabs.Misc:AddToggle("Toggle_FPSBoost", {
+local Toggle_FPSBoost = Tabs.Misc:AddToggle("Toggle_FPSBoost", {
     Title       = "Bật FPS Boost",
-    Description = "Tắt shadow, particle, texture thấp → tăng FPS mạnh",
+    Description = "Giảm đồ họa giúp mượt game, không bị lỗi màn hình đen",
     Default     = false,
     Callback    = function(Value)
-        ApplyFPSBoost(Value)
+        -- Chặn trường hợp Fluent tự load lúc khởi động làm lag
+        if fpsBoostActive ~= Value then
+            ApplyFPSBoost(Value)
+        end
     end
 })
 
@@ -661,13 +625,11 @@ Tabs.Misc:AddToggle("Toggle_FPSBoost", {
 -- ==========================================
 Tabs.Misc:AddSection("🏃 Nhân Vật (Player)")
 
--- ── Hàm lấy Humanoid an toàn ─────────────────────────────────────────────────
 local function GetHumanoid()
     local char = LocalPlayer.Character
     return char and char:FindFirstChildOfClass("Humanoid")
 end
 
--- ── WalkSpeed ────────────────────────────────────────────────────────────────
 Tabs.Misc:AddSlider("Slider_WalkSpeed", {
     Title       = "Walk Speed",
     Description = "Tốc độ di chuyển (mặc định: 16)",
@@ -683,7 +645,6 @@ Tabs.Misc:AddSlider("Slider_WalkSpeed", {
     end
 })
 
--- Giữ WalkSpeed khi respawn
 LocalPlayer.CharacterAdded:Connect(function(char)
     local hum = char:WaitForChild("Humanoid", 10)
     if hum then
@@ -692,22 +653,16 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Giữ WalkSpeed liên tục (một số game reset)
 task.spawn(function()
     while task.wait(0.5) do
         local hum = GetHumanoid()
         if hum then
-            if Config.WalkSpeed ~= 16 then
-                hum.WalkSpeed = Config.WalkSpeed
-            end
-            if Config.JumpSpeed ~= 50 then
-                hum.JumpHeight = Config.JumpSpeed
-            end
+            if Config.WalkSpeed ~= 16 then hum.WalkSpeed = Config.WalkSpeed end
+            if Config.JumpSpeed ~= 50 then hum.JumpHeight = Config.JumpSpeed end
         end
     end
 end)
 
--- ── JumpSpeed (JumpHeight) ───────────────────────────────────────────────────
 Tabs.Misc:AddSlider("Slider_JumpSpeed", {
     Title       = "Jump Speed / Height",
     Description = "Độ cao nhảy (mặc định: 50)",
@@ -723,18 +678,14 @@ Tabs.Misc:AddSlider("Slider_JumpSpeed", {
     end
 })
 
--- ── Infinite Jump ────────────────────────────────────────────────────────────
 local infJumpConn = nil
-
 Tabs.Misc:AddToggle("Toggle_InfJump", {
     Title       = "Infinite Jump",
     Description = "Nhảy vô hạn trên không",
     Default     = false,
     Callback    = function(Value)
         Config.InfJump = Value
-
         if Value then
-            -- Kết nối UserInputService để bắt Space/Jump
             local UIS = game:GetService("UserInputService")
             infJumpConn = UIS.JumpRequest:Connect(function()
                 local hum = GetHumanoid()
