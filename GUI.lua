@@ -106,30 +106,6 @@ Btn.MouseButton1Up:Connect(function()
 end)
 
 -- ==========================================
--- 4. FIX LỖI MẤT CHUỘT (Ấn LEFT ALT)
--- ==========================================
-local isMouseForced = false
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.LeftAlt then
-        isMouseForced = not isMouseForced
-        if getgenv().NthucHub_UI then
-            getgenv().NthucHub_UI:Notify({
-                Title = "Hệ thống Chuột",
-                Content = isMouseForced and "Đã MỞ khóa chuột!" or "Đã KHÓA chuột theo game!",
-                Duration = 2
-            })
-        end
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if isMouseForced then
-        UserInputService.MouseIconEnabled = true
-        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-    end
-end)
-
--- ==========================================
 -- 5. TẢI CÁC MODULE (Autofarm, Autoraid...)
 -- ==========================================
 local githubRepo = "https://raw.githubusercontent.com/Huunhat206/LineAGE/main/"
