@@ -1,16 +1,16 @@
 local Fluent, Window = ...
 
--- 1. Khởi tạo Tab Auto Farm
+-- ==========================================
+-- KHỞI TẠO TAB & BIẾN
+-- ==========================================
 local Tabs = {
     Farm = Window:AddTab({ Title = "Auto Farm", Icon = "swords" })
 }
 
--- 2. Khai báo Services và Variables
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- [ĐÃ FIX] Trỏ vào thư mục Live thay vì Npcs
 local LiveFolder = workspace:WaitForChild("Live", 9e9)
 local EffectsFolder = workspace:WaitForChild("Effects", 9e9)
 
@@ -28,21 +28,16 @@ local Config = {
 }
 
 -- ==========================================
--- HÀM XỬ LÝ TÊN QUÁI VẬT (Lọc bỏ ID và dấu chấm)
+-- HÀM XỬ LÝ TÊN QUÁI VẬT
 -- ==========================================
 local function GetBaseName(rawName)
-    -- Xóa dấu chấm "." ở đầu nếu có
     local name = string.gsub(rawName, "^%.", "")
-    
-    -- Xóa 6 ký tự ID ngẫu nhiên ở cuối (Dựa theo ảnh của bạn, ID luôn dài 6 ký tự)
     if #name > 6 then
         name = string.sub(name, 1, -7)
     end
-    
     return name
 end
 
--- Hàm quét lấy tên NPC gốc (đã gộp)
 local function GetNpcList()
     local list = {}
     local seen = {}
@@ -61,8 +56,6 @@ end
 -- ==========================================
 -- GIAO DIỆN NGƯỜI DÙNG (UI)
 -- ==========================================
-
--- [PHẦN 1] Chọn Quái
 local NpcList = GetNpcList()
 local Dropdown_Mob = Tabs.Farm:AddDropdown("Dropdown_Mob", {
     Title = "Chọn Quái (Select Mob)",
@@ -90,7 +83,6 @@ Tabs.Farm:AddToggle("Toggle_AutoFarm", {
     end
 })
 
--- [PHẦN 2] Cấu hình Tọa Độ bằng THANH TRƯỢT
 local SectionPos = Tabs.Farm:AddSection("Cài đặt Tọa Độ (Position)")
 
 Tabs.Farm:AddDropdown("Dropdown_Pos", {
@@ -103,20 +95,11 @@ Tabs.Farm:AddDropdown("Dropdown_Pos", {
     end
 })
 
-Tabs.Farm:AddSlider("Slider_Distance", {
-    Title = "Khoảng cách (Distance)",
-    Default = 5,
-    Min = 0,
-    Max = 30,
-    Rounding = 1,
-    Callback = function(Value) Config.Distance = Value end
-})
-
+Tabs.Farm:AddSlider("Slider_Distance", { Title = "Khoảng cách (Distance)", Default = 5, Min = 0, Max = 30, Rounding = 1, Callback = function(Value) Config.Distance = Value end })
 Tabs.Farm:AddSlider("Slider_OffsetX", { Title = "Offset X", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetX = Value end })
 Tabs.Farm:AddSlider("Slider_OffsetY", { Title = "Offset Y", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetY = Value end })
 Tabs.Farm:AddSlider("Slider_OffsetZ", { Title = "Offset Z", Default = 0, Min = -20, Max = 20, Rounding = 1, Callback = function(Value) Config.OffsetZ = Value end })
 
--- [PHẦN 3] Auto Stand & Skill
 local SectionStand = Tabs.Farm:AddSection("Chiến đấu (Combat)")
 
 Tabs.Farm:AddToggle("Toggle_AutoStand", { Title = "Bật Auto Stand", Default = false, Callback = function(Value) Config.AutoStand = Value end })
@@ -136,15 +119,11 @@ end)
 -- ==========================================
 -- LOGIC XỬ LÝ CHÍNH
 -- ==========================================
-
--- [ĐÃ FIX] Tìm mục tiêu dựa trên tên gốc thay vì tên nguyên bản
 local function GetTarget()
     if not Config.SelectedMob then return nil end
     for _, npc in ipairs(LiveFolder:GetChildren()) do
         if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-            -- Chuyển tên thực tế thành tên gốc để so sánh
             local baseName = GetBaseName(npc.Name)
-            
             if baseName == Config.SelectedMob then
                 local humanoid = npc:FindFirstChild("Humanoid")
                 if humanoid and humanoid.Health > 0 then
@@ -199,7 +178,7 @@ end)
 
 -- VÒNG LẶP AUTO SKILL
 task.spawn(function()
-    while task.wait(0.2) do
+    while task.wait(0.5) do
         if Config.AutoFarm and Config.AutoSkill then
             local character = LocalPlayer.Character
             local controller = character and character:FindFirstChild("client_character_controller")
@@ -207,11 +186,17 @@ task.spawn(function()
             if controller and controller:FindFirstChild("Skill") then
                 for skillKey, isSelected in pairs(Config.Skills) do
                     if isSelected then
-                        pcall(function()
-                            local args = {skillKey, true}
-                            controller.Skill:FireServer(unpack(args))
+                        print("[Nthuc Hub] Đang xả skill: " .. tostring(skillKey))
+                        
+                        local success, err = pcall(function()
+                            controller.Skill:FireServer(skillKey, true)
                         end)
-                        task.wait(0.1) 
+                        
+                        if not success then
+                            warn("[Nthuc Hub] Bị lỗi ở skill " .. skillKey .. ": " .. tostring(err))
+                        end
+                        
+                        task.wait(0.3) 
                     end
                 end
             end
