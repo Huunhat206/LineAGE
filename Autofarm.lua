@@ -117,16 +117,19 @@ Dropdown_Skill:OnChanged(function(Value)
 end)
 
 -- ==========================================
--- LOGIC XỬ LÝ CHÍNH
+-- LOGIC XỬ LÝ CHÍNH [ĐÃ FIX LỖI VĂNG VOID]
 -- ==========================================
 local function GetTarget()
     if not Config.SelectedMob then return nil end
     for _, npc in ipairs(LiveFolder:GetChildren()) do
-        if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
-            local baseName = GetBaseName(npc.Name)
-            if baseName == Config.SelectedMob then
-                local humanoid = npc:FindFirstChild("Humanoid")
-                if humanoid and humanoid.Health > 0 then
+        if npc:IsA("Model") then
+            local hrp = npc:FindFirstChild("HumanoidRootPart")
+            local humanoid = npc:FindFirstChild("Humanoid")
+            
+            -- [FIX 1] Thêm điều kiện Y > -500 để bỏ qua những con quái bị game vứt xuống dưới gầm map
+            if hrp and humanoid and humanoid.Health > 0 and hrp.Position.Y > -500 then
+                local baseName = GetBaseName(npc.Name)
+                if baseName == Config.SelectedMob then
                     return npc
                 end
             end
@@ -150,6 +153,11 @@ local function CalculateCFrame(targetCFrame)
     offsetCFrame = offsetCFrame * CFrame.new(Config.OffsetX, Config.OffsetY, Config.OffsetZ)
     local finalPos = (targetCFrame * offsetCFrame).Position
     
+    -- [FIX 2] Chống lỗi NaN (Văng map) nếu khoảng cách giữa bạn và quái = 0
+    if (finalPos - targetPos).Magnitude < 0.1 then
+        return CFrame.new(finalPos)
+    end
+    
     return CFrame.lookAt(finalPos, targetPos)
 end
 
@@ -164,54 +172,49 @@ RunService.Heartbeat:Connect(function()
     if Config.AutoFarm then
         local target = GetTarget()
         if target then
+            -- Bỏ neo để bay đến đánh quái
+            if hrp.Anchored then hrp.Anchored = false end 
+            
             hrp.CFrame = CalculateCFrame(target.HumanoidRootPart.CFrame)
             
             if controller and controller:FindFirstChild("M1") then
-                pcall(function()
-                    local args = {true, false}
-                    controller.M1:FireServer(unpack(args))
-                end)
+                -- Tryền thẳng mảng vào FireServer để tránh lỗi
+                local args = {true, false}
+                controller.M1:FireServer(args[1], args[2])
             end
+        else
+            -- [FIX 3] HẾT QUÁI: Neo nhân vật lơ lửng trên không trung, không cho rơi xuống vực
+            hrp.Anchored = true
         end
+    else
+        -- TẮT AUTO FARM: Trả lại trạng thái bình thường (rơi xuống đất)
+        if hrp.Anchored then hrp.Anchored = false end
     end
 end)
 
--- ==========================================
--- VÒNG LẶP AUTO SKILL (DÙNG ĐÚNG REMOTE CỦA BẠN)
--- ==========================================
+-- VÒNG LẶP AUTO SKILL
 task.spawn(function()
     while task.wait(0.5) do
         if Config.AutoFarm and Config.AutoSkill then
-            -- Lấy đúng đường dẫn theo cấu trúc của bạn
-            local character = game:GetService("Players").LocalPlayer.Character
-            if character then
-                local controller = character:FindFirstChild("client_character_controller")
-                
-                if controller then
-                    -- Quét các skill bạn đang tick chọn trong Menu
-                    for skillKey, isSelected in pairs(Config.Skills) do
-                        if isSelected then
-                            local skillRemote = controller:FindFirstChild("Skill")
-                            
-                            if skillRemote then
-                                -- Dùng đúng form args của bạn, KHÔNG bọc pcall nữa để executor không bị lỗi ngầm
-                                local args = {
-                                    skillKey,
-                                    true
-                                }
-                                
-                                skillRemote:FireServer(unpack(args))
-                            end
-                            
-                            -- Delay 0.5s giữa các lần tung chiêu để server nhận diện kịp
-                            task.wait(0.5) 
+            local character = LocalPlayer.Character
+            local controller = character and character:FindFirstChild("client_character_controller")
+            
+            if controller then
+                for skillKey, isSelected in pairs(Config.Skills) do
+                    if isSelected then
+                        local skillRemote = controller:FindFirstChild("Skill")
+                        if skillRemote then
+                            local args = {skillKey, true}
+                            skillRemote:FireServer(args[1], args[2])
                         end
+                        task.wait(0.5) 
                     end
                 end
             end
         end
     end
 end)
+
 -- VÒNG LẶP AUTO STAND
 task.spawn(function()
     while task.wait(1.5) do
@@ -231,4 +234,5 @@ task.spawn(function()
             end
         end
     end
+end)
 end)
