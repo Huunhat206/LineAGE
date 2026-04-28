@@ -1,16 +1,19 @@
--- ============================================================
---  NTHUC HUB  ·  PvP Auto Queue (Anti-Stuck Timeout Fix)
---  Main  = ấn E đến khi Joined, chờ Left/teleport rồi lặp
---  Alt   = ấn E đến khi Joined, thua → kill respawn → lặp
---  Auto-save: bật/tắt sẽ giữ nguyên khi re-execute
--- ============================================================
 
 local Players    = game:GetService("Players")
 local TweenSvc   = game:GetService("TweenService")
 local HttpSvc    = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
+
+-- ── ANTI-AFK NGẦM (CHỐNG KICK 20 PHÚT) ────────────────────────────────────────
+-- Chạy tự động ngay khi execute script, tự giả lập click khi game báo rảnh rỗi
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+    print("💤 [Anti-AFK] Đã giả lập hoạt động để chống văng game!")
+end)
 
 -- ── Camera lock system (SMART RAYCAST VIEW) ───────────────────────────────────
 local camLockConn    = nil
@@ -341,7 +344,6 @@ local function MainLoop()
         local stopWatch = WatchLeft(function() left = true end)
 
         local queueElapsed = 0
-        -- ANTI-STUCK: Kẹt hàng chờ quá 2 phút thì tự reset để vớt vòng lặp
         while Cfg.MainActive and not left do
             if not root or not root.Parent or hum.Health <= 0 then break end
             local dist = (root.Position - boardCF.Position).Magnitude
@@ -457,7 +459,6 @@ local function AltLoop()
         local teleported = false
         local elapsed    = 0
         
-        -- ANTI-STUCK: Kẹt hàng chờ quá 2 phút (120s) thì tự reset
         while Cfg.AltActive and not teleported and elapsed < 120 do
             if not root or not root.Parent or hum.Health <= 0 then break end
             local dist = (root.Position - boardCF.Position).Magnitude
