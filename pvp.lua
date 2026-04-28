@@ -1,10 +1,3 @@
--- ============================================================
---  NTHUC HUB  ·  PvP Auto Queue
---  Main  = ấn E đến khi Joined, chờ Left/teleport rồi lặp
---  Alt   = ấn E đến khi Joined, chờ teleport → kill respawn → lặp
---  Auto-save: bật/tắt sẽ giữ nguyên khi re-execute
--- ============================================================
-
 local Players    = game:GetService("Players")
 local TweenSvc   = game:GetService("TweenService")
 local HttpSvc    = game:GetService("HttpService")
@@ -12,39 +5,45 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
 
--- ── Camera lock system ────────────────────────────────────────────────────────
+-- ── Camera lock system (SMART RAYCAST VIEW) ───────────────────────────────────
 local camLockConn    = nil
 local camLockEnabled = false
-local fixedCamCF     = nil   -- CFrame cố định trong world space
+local fixedCamCF     = nil   
 
-local function StartCameraLock(boardCF)
+local function StartCameraLock(board, boardCF)
     if not camLockEnabled then return end
-    -- Disconnect loop cũ nếu có
     if camLockConn then camLockConn:Disconnect() camLockConn = nil end
 
-    local boardPos = boardCF.Position
+    local boardCenter = boardCF.Position + Vector3.new(0, 1.5, 0)
+    local bestCamPos = boardCenter + Vector3.new(0, 15, 0) 
 
-    -- Lấy hướng từ board đến nhân vật → camera đứng cùng phía với player nhìn vào board
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local ignoreList = {LocalPlayer.Character}
+    if board then table.insert(ignoreList, board) end
+    params.FilterDescendantsInstances = ignoreList
 
-    local camDir
-    if root then
-        local toPlayer = root.Position - boardPos
-        local flat = Vector3.new(toPlayer.X, 0, toPlayer.Z)
-        camDir = flat.Magnitude > 0.5 and flat.Unit or Vector3.new(0, 0, 1)
-    else
-        -- Fallback: dùng ngược LookVector flatten
-        local fwd = boardCF.LookVector
-        local flat = Vector3.new(fwd.X, 0, fwd.Z)
-        camDir = flat.Magnitude > 0.1 and -flat.Unit or Vector3.new(0, 0, 1)
+    local offsets = {
+        boardCF.LookVector * 12 + Vector3.new(0, 10, 0),    
+        -boardCF.LookVector * 12 + Vector3.new(0, 10, 0),   
+        boardCF.RightVector * 12 + Vector3.new(0, 10, 0),   
+        -boardCF.RightVector * 12 + Vector3.new(0, 10, 0),  
+        Vector3.new(10, 12, 10),                            
+        Vector3.new(-10, 12, 10),                           
+        Vector3.new(10, 12, -10),                           
+        Vector3.new(-10, 12, -10)                           
+    }
+
+    for _, offset in ipairs(offsets) do
+        local testPos = boardCenter + offset
+        local ray = workspace:Raycast(boardCenter, testPos - boardCenter, params)
+        if not ray then
+            bestCamPos = testPos
+            break 
+        end
     end
 
-    -- Camera đứng sau nhân vật một chút, ngang tầm mắt, nhìn thẳng vào board
-    local camPos = boardPos + camDir * 10 + Vector3.new(0, 2, 0)
-    fixedCamCF = CFrame.lookAt(camPos, boardPos + Vector3.new(0, 2, 0))
-
-    -- Set một lần → free cam, không bị force mỗi frame, không ảnh hưởng bởi character
+    fixedCamCF = CFrame.lookAt(bestCamPos, boardCenter)
     Camera.CameraType = Enum.CameraType.Scriptable
     Camera.CFrame     = fixedCamCF
 end
@@ -78,12 +77,43 @@ local function LoadCfg()
 end
 LoadCfg()
 
--- ── Lấy PvP Mission Board ─────────────────────────────────────────────────────
-local function GetBoard()
-    local map    = workspace:FindFirstChild("Map")
-    local boards = map and map:FindFirstChild("Mission Boards")
-    local pvp    = boards and boards:FindFirstChild("PvP")
-    return pvp and pvp:FindFirstChild("PvP Mission Board")
+-- ── Hệ thống tìm & Blacklist Bảng ─────────────────────────────────────────────
+local currentBoard = nil
+local blacklistedBoards = {}
+
+local function GetClosestBoard()
+    if currentBoard and currentBoard.Parent and not blacklistedBoards[currentBoard] then
+        return currentBoard
+    end
+
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    local closest = nil
+    local minDist = math.huge
+    local searchArea = workspace:FindFirstChild("Map") or workspace
+
+    for _, obj in ipairs(searchArea:GetDescendants()) do
+        if obj.Name == "PvP Mission Board" and (obj:IsA("Model") or obj:IsA("BasePart")) then
+            if not blacklistedBoards[obj] then
+                local cf = obj:IsA("Model") and obj:GetPivot() or obj.CFrame
+                local dist = (root.Position - cf.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = obj
+                end
+            end
+        end
+    end
+
+    if not closest then
+        blacklistedBoards = {}
+        return nil
+    end
+
+    currentBoard = closest
+    return closest
 end
 
 local function GetBoardCFrame(board)
@@ -92,41 +122,39 @@ local function GetBoardCFrame(board)
     return nil
 end
 
--- ── Teleport + kích ProximityPrompt (INSTANT - tương thích Solara) ───────────
+-- ── Teleport + kích ProximityPrompt ───────────────────────────────────────────
 local function PressBoard(board, rootPart)
     local cf = GetBoardCFrame(board)
     if not cf then return end
 
-    rootPart.CFrame = cf * CFrame.new(0, 0, 2)
-    task.wait(0.3)
+    if (rootPart.Position - cf.Position).Magnitude > 5 then
+        rootPart.CFrame = cf * CFrame.new(0, 0, 0)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        task.wait(0.3)
+    end
 
     local prompt = board:FindFirstChildWhichIsA("ProximityPrompt", true)
     if not prompt then return end
 
-    -- ── Method 1: fireproximityprompt (Synapse / Script-Ware) ────────────────
     if fireproximityprompt then
         pcall(fireproximityprompt, prompt)
         task.wait(0.3)
         return
     end
 
-    -- ── Method 2: Solara & hầu hết executor còn lại ──────────────────────────
-    -- Ép HoldDuration = 0 → InputHoldBegin + InputHoldEnd trong 1 frame = instant
     local oldHold = prompt.HoldDuration
     local oldDist = prompt.MaxActivationDistance
 
     pcall(function()
         prompt.HoldDuration          = 0
-        prompt.MaxActivationDistance = 32   -- đảm bảo trong tầm kích hoạt
+        prompt.MaxActivationDistance = 32
     end)
 
-    task.wait()   -- đợi 1 frame để property áp dụng
-
+    task.wait()
     pcall(function() prompt:InputHoldBegin() end)
-    task.wait()   -- 1 frame
+    task.wait()
     pcall(function() prompt:InputHoldEnd()   end)
 
-    -- Khôi phục giá trị gốc
     pcall(function()
         prompt.HoldDuration          = oldHold
         prompt.MaxActivationDistance = oldDist
@@ -135,49 +163,7 @@ local function PressBoard(board, rootPart)
     task.wait(0.3)
 end
 
--- ── Theo dõi notification từ PlayerGui.Notifications.holder ──────────────────
---   Trả về true nếu tìm thấy keyword trong khoảng timeout (giây)
-local function WaitNotification(keyword, timeout)
-    -- Path: PlayerGui → Notifications → holder → [tên notify].title
-    local pg       = LocalPlayer:FindFirstChild("PlayerGui")
-    local notifGui = pg and pg:FindFirstChild("Notifications")
-    local holder   = notifGui and notifGui:FindFirstChild("holder")
-    if not holder then
-        -- thử đợi
-        pcall(function()
-            notifGui = pg:WaitForChild("Notifications", 5)
-            holder   = notifGui and notifGui:WaitForChild("holder", 5)
-        end)
-    end
-    if not holder then return false end
-
-    local found = false
-    local conn  = holder.ChildAdded:Connect(function(child)
-        -- tên child thường chính là text thông báo (VD: "Joined PvP Mission Queue.")
-        if child.Name:find(keyword, 1, true) then
-            found = true
-            return
-        end
-        -- dự phòng: check TextLabel .title sau 0.1s (để game kịp set text)
-        task.delay(0.15, function()
-            local lbl = child:FindFirstChild("title")
-            if lbl and lbl:IsA("TextLabel") and lbl.Text:find(keyword, 1, true) then
-                found = true
-            end
-        end)
-    end)
-
-    local elapsed = 0
-    while not found and elapsed < timeout do
-        task.wait(0.25)
-        elapsed = elapsed + 0.25
-    end
-
-    conn:Disconnect()
-    return found
-end
-
--- ── Theo dõi "Left PvP" qua notification ─────────────────────────────────────
+-- ── Theo dõi notification ────────────────────────────────────────────────────
 local function WatchLeft(onLeft)
     local pg       = LocalPlayer:FindFirstChild("PlayerGui")
     local notifGui = pg and pg:FindFirstChild("Notifications")
@@ -200,9 +186,7 @@ local function WatchLeft(onLeft)
     return function() conn:Disconnect() end
 end
 
--- ── Trạng thái hiển thị lên GUI label ─────────────────────────────────────────
-local StatusLabel -- sẽ gán sau khi tạo GUI
-
+local StatusLabel 
 local function SetStatus(text, color)
     if StatusLabel then
         StatusLabel.Text      = text
@@ -223,7 +207,7 @@ local function MainLoop()
         local hum     = char:WaitForChild("Humanoid", 10)
         if not root or not hum then task.wait(1) continue end
 
-        local board = GetBoard()
+        local board = GetClosestBoard()
         if not board then
             SetStatus("❌ Không tìm thấy Board", Color3.fromRGB(220, 80, 80))
             task.wait(3)
@@ -231,10 +215,8 @@ local function MainLoop()
         end
         local boardCF = GetBoardCFrame(board)
 
-        -- 🎥 Lock camera nhìn vào board khi đang ấn E
-        if boardCF then StartCameraLock(boardCF) end
+        if board and boardCF then StartCameraLock(board, boardCF) end
 
-        -- Lắng nghe Joined notification song song, ấn lại mỗi lần nếu chưa được
         local joined = false
         local pg2    = LocalPlayer:FindFirstChild("PlayerGui")
         local ng2    = pg2 and pg2:FindFirstChild("Notifications")
@@ -260,6 +242,14 @@ local function MainLoop()
         local attempt = 0
         while Cfg.MainActive and not joined do
             attempt = attempt + 1
+            if attempt > 8 then
+                SetStatus("⚠️ Bảng bị lỗi, đổi bảng khác...", Color3.fromRGB(220, 150, 80))
+                blacklistedBoards[board] = true
+                currentBoard = nil
+                task.wait(1)
+                break
+            end
+
             SetStatus(string.format("🔄 Main: ấn E... (lần %d)", attempt), Color3.fromRGB(180, 160, 220))
             PressBoard(board, root)
             local w = 0
@@ -267,13 +257,15 @@ local function MainLoop()
         end
         if joinConn then joinConn:Disconnect() end
 
+        if not joined and attempt > 8 then
+            continue
+        end
+
         if not Cfg.MainActive then StopCameraLock() break end
 
-        -- 🎥 Đã vào hàng → trả camera về bình thường
         StopCameraLock()
         SetStatus("✅ Main: đã vào hàng!", Color3.fromRGB(80, 210, 130))
 
-        -- Chờ Left notification hoặc teleport khỏi board
         local left      = false
         local stopWatch = WatchLeft(function() left = true end)
 
@@ -306,7 +298,7 @@ local function AltLoop()
         local hum  = char:WaitForChild("Humanoid", 10)
         if not root or not hum then task.wait(1) continue end
 
-        local board = GetBoard()
+        local board = GetClosestBoard()
         if not board then
             SetStatus("❌ Không tìm thấy Board", Color3.fromRGB(220, 80, 80))
             task.wait(3)
@@ -314,10 +306,8 @@ local function AltLoop()
         end
         local boardCF = GetBoardCFrame(board)
 
-        -- 🎥 Lock camera nhìn vào board khi đang ấn E
-        if boardCF then StartCameraLock(boardCF) end
+        if board and boardCF then StartCameraLock(board, boardCF) end
 
-        -- Lắng nghe Joined notification song song
         local joined = false
         local pg3    = LocalPlayer:FindFirstChild("PlayerGui")
         local ng3    = pg3 and pg3:FindFirstChild("Notifications")
@@ -343,6 +333,14 @@ local function AltLoop()
         local attempt2 = 0
         while Cfg.AltActive and not joined do
             attempt2 = attempt2 + 1
+            if attempt2 > 8 then
+                SetStatus("⚠️ Bảng bị lỗi, đổi bảng khác...", Color3.fromRGB(220, 150, 80))
+                blacklistedBoards[board] = true
+                currentBoard = nil
+                task.wait(1)
+                break
+            end
+
             SetStatus(string.format("🔄 Alt: ấn E... (lần %d)", attempt2), Color3.fromRGB(220, 160, 140))
             PressBoard(board, root)
             local w = 0
@@ -350,13 +348,15 @@ local function AltLoop()
         end
         if joinConn2 then joinConn2:Disconnect() end
 
+        if not joined and attempt2 > 8 then
+            continue
+        end
+
         if not Cfg.AltActive then StopCameraLock() break end
 
-        -- 🎥 Đã vào hàng → trả camera về bình thường
         StopCameraLock()
         SetStatus("✅ Alt: đã vào hàng!", Color3.fromRGB(220, 120, 80))
 
-        -- Chờ bị teleport vào map (dist > 50)
         local teleported = false
         local elapsed    = 0
         while Cfg.AltActive and not teleported and elapsed < 90 do
@@ -370,7 +370,6 @@ local function AltLoop()
 
         if teleported and Cfg.AltActive then
             SetStatus("💀 Alt: thua → respawn...", Color3.fromRGB(220, 80, 80))
-            -- Chờ vào map rồi mới kill (tránh kill ngay lúc loading)
             task.wait(3)
             local c2  = LocalPlayer.Character
             local h2  = c2 and c2:FindFirstChildOfClass("Humanoid")
@@ -388,7 +387,6 @@ end
 -- ============================================================
 --  GUI
 -- ============================================================
--- Xoá GUI cũ nếu re-execute
 for _, v in ipairs({ LocalPlayer.PlayerGui, game:GetService("CoreGui") }) do
     pcall(function()
         local old = v:FindFirstChild("NthucHub_PvPGui")
@@ -414,7 +412,6 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn   = false
 ScreenGui.Parent         = guiParent
 
--- ── Frame chính ──────────────────────────────────────────────────────────────
 local W, H = 270, 244
 local Frame = Instance.new("Frame")
 Frame.Size             = UDim2.new(0, W, 0, H)
@@ -426,7 +423,6 @@ Frame.ClipsDescendants = true
 Frame.Parent           = ScreenGui
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
 
--- Gradient nền
 local bgGrad = Instance.new("UIGradient")
 bgGrad.Color    = ColorSequence.new({
     ColorSequenceKeypoint.new(0,   Color3.fromRGB(14, 10, 28)),
@@ -435,13 +431,11 @@ bgGrad.Color    = ColorSequence.new({
 bgGrad.Rotation = 120
 bgGrad.Parent   = Frame
 
--- Viền ngoài
 local outerStroke = Instance.new("UIStroke")
 outerStroke.Color     = Color3.fromRGB(90, 60, 160)
 outerStroke.Thickness = 1.5
 outerStroke.Parent    = Frame
 
--- ── Header ───────────────────────────────────────────────────────────────────
 local Header = Instance.new("Frame")
 Header.Size             = UDim2.new(1, 0, 0, 44)
 Header.BackgroundColor3 = Color3.fromRGB(22, 14, 45)
@@ -449,7 +443,6 @@ Header.ZIndex           = 2
 Header.Parent           = Frame
 Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 16)
 
--- Patch góc dưới header
 local hp = Instance.new("Frame")
 hp.Size             = UDim2.new(1, 0, 0, 16)
 hp.Position         = UDim2.new(0, 0, 1, -16)
@@ -478,22 +471,21 @@ TitleLbl.TextXAlignment     = Enum.TextXAlignment.Left
 TitleLbl.ZIndex             = 3
 TitleLbl.Parent             = Header
 
--- Nút đóng GUI
+-- FIXED CÁI NÚT X TẠI ĐÂY
 local CloseGui = Instance.new("TextButton")
 CloseGui.Size             = UDim2.new(0, 24, 0, 24)
 CloseGui.AnchorPoint      = Vector2.new(1, 0.5)
 CloseGui.Position         = UDim2.new(1, -10, 0.5, 0)
-CloseGui.BackgroundColor3 = Color3.fromRGB(160, 40, 40)
-CloseGui.Text             = "✕"
+CloseGui.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+CloseGui.Text             = "X"
 CloseGui.Font             = Enum.Font.GothamBold
-CloseGui.TextSize         = 11
+CloseGui.TextSize         = 12
 CloseGui.TextColor3       = Color3.fromRGB(255, 255, 255)
 CloseGui.ZIndex           = 5
 CloseGui.Parent           = Header
-Instance.new("UICorner", CloseGui).CornerRadius = UDim.new(0, 7)
+Instance.new("UICorner", CloseGui).CornerRadius = UDim.new(0, 6)
 CloseGui.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
--- ── Status label ─────────────────────────────────────────────────────────────
 StatusLabel = Instance.new("TextLabel")
 StatusLabel.Size               = UDim2.new(1, -16, 0, 22)
 StatusLabel.Position           = UDim2.new(0, 8, 0, 48)
@@ -506,7 +498,6 @@ StatusLabel.TextXAlignment     = Enum.TextXAlignment.Center
 StatusLabel.ZIndex             = 2
 StatusLabel.Parent             = Frame
 
--- ── Toggle Button Factory ─────────────────────────────────────────────────────
 local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onToggle)
     local Btn = Instance.new("TextButton")
     Btn.Size             = UDim2.new(1, -20, 0, 50)
@@ -522,7 +513,6 @@ local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onTogg
     btnStroke.Thickness = 1
     btnStroke.Parent    = Btn
 
-    -- Icon / badge bên trái
     local Icon = Instance.new("Frame")
     Icon.Size             = UDim2.new(0, 36, 0, 36)
     Icon.AnchorPoint      = Vector2.new(0, 0.5)
@@ -553,7 +543,6 @@ local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onTogg
     IconTxt.ZIndex             = 4
     IconTxt.Parent             = Icon
 
-    -- Tên & mô tả
     local NameLbl = Instance.new("TextLabel")
     NameLbl.Size               = UDim2.new(1, -110, 0, 18)
     NameLbl.Position           = UDim2.new(0, 54, 0, 7)
@@ -578,7 +567,6 @@ local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onTogg
     DescLbl.ZIndex             = 3
     DescLbl.Parent             = Btn
 
-    -- Pill toggle bên phải
     local PillBg = Instance.new("Frame")
     PillBg.Size             = UDim2.new(0, 44, 0, 22)
     PillBg.AnchorPoint      = Vector2.new(1, 0.5)
@@ -597,7 +585,6 @@ local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onTogg
     PillDot.Parent           = PillBg
     Instance.new("UICorner", PillDot).CornerRadius = UDim.new(1, 0)
 
-    -- Hàm set trạng thái
     local active = false
     local function SetActive(val, skipCallback)
         active = val
@@ -617,15 +604,10 @@ local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onTogg
         SetActive(not active)
     end)
 
-    -- Khởi tạo theo saved config
-    if initState then
-        SetActive(true, true) -- chỉ đổi màu, không trigger callback (callback sẽ gọi sau)
-    end
-
+    if initState then SetActive(true, true) end
     return SetActive
 end
 
--- ── Tạo 2 nút toggle ─────────────────────────────────────────────────────────
 local setMain = MakeToggle("Main", 74, Color3.fromRGB(80, 210, 130), Color3.fromRGB(50, 80, 55),
     Cfg.MainActive,
     function(val)
@@ -655,7 +637,6 @@ local setAlt = MakeToggle("Alt", 132, Color3.fromRGB(220, 90, 90), Color3.fromRG
 )
 
 -- ── Nút nhỏ: Lock Camera ──────────────────────────────────────────────────────
-
 local CamRow = Instance.new("TextButton")
 CamRow.Size             = UDim2.new(1, -20, 0, 32)
 CamRow.Position         = UDim2.new(0, 10, 0, 190)
@@ -692,7 +673,6 @@ CamLbl.TextXAlignment     = Enum.TextXAlignment.Left
 CamLbl.ZIndex             = 3
 CamLbl.Parent             = CamRow
 
--- Mini pill
 local CamPillBg = Instance.new("Frame")
 CamPillBg.Size             = UDim2.new(0, 36, 0, 18)
 CamPillBg.AnchorPoint      = Vector2.new(1, 0.5)
@@ -722,13 +702,11 @@ CamRow.MouseButton1Click:Connect(function()
     if not camLockEnabled then
         StopCameraLock()
     else
-        -- Thử lock ngay nếu đang active
-        local board = GetBoard()
+        local board = GetClosestBoard()
         local cf    = board and GetBoardCFrame(board)
-        if cf then StartCameraLock(cf) end
+        if board and cf then StartCameraLock(board, cf) end
     end
 end)
 
--- ── Khởi động lại nếu config đã lưu = true ───────────────────────────────────
 if Cfg.MainActive then mainThread = task.spawn(MainLoop) end
 if Cfg.AltActive  then altThread  = task.spawn(AltLoop)  end
