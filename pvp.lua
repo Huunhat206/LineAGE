@@ -1,3 +1,10 @@
+-- ============================================================
+--  NTHUC HUB  ·  PvP Auto Queue (Anti-Stuck Timeout Fix)
+--  Main  = ấn E đến khi Joined, chờ Left/teleport rồi lặp
+--  Alt   = ấn E đến khi Joined, thua → kill respawn → lặp
+--  Auto-save: bật/tắt sẽ giữ nguyên khi re-execute
+-- ============================================================
+
 local Players    = game:GetService("Players")
 local TweenSvc   = game:GetService("TweenService")
 local HttpSvc    = game:GetService("HttpService")
@@ -59,7 +66,7 @@ end
 
 -- ── Config save/load ──────────────────────────────────────────────────────────
 local CFG_FILE = "NthucHub_PvP.json"
-local Cfg = { MainActive = false, AltActive = false }
+local Cfg = { MainActive = false, AltActive = false, TargetName = "" }
 
 local function SaveCfg()
     pcall(function() writefile(CFG_FILE, HttpSvc:JSONEncode(Cfg)) end)
@@ -71,11 +78,76 @@ local function LoadCfg()
             if d then
                 Cfg.MainActive = d.MainActive or false
                 Cfg.AltActive  = d.AltActive  or false
+                Cfg.TargetName = d.TargetName or ""
             end
         end
     end)
 end
 LoadCfg()
+
+-- ── Hệ thống Reset & Thông báo (Săn Mục Tiêu / Né Lỗi) ───────────────────────
+local StatusLabel 
+local function SetStatus(text, color)
+    if StatusLabel then
+        StatusLabel.Text      = text
+        StatusLabel.TextColor3 = color or Color3.fromRGB(180, 165, 220)
+    end
+end
+
+local function ResetCharacter()
+    pcall(function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            hum.Health = 0
+        end
+    end)
+end
+
+local globalNotifConn = nil
+
+local function HandleNotification(child)
+    if not Cfg.MainActive and not Cfg.AltActive then return end
+
+    task.delay(0.15, function()
+        local text = child.Name
+        local lbl = child:FindFirstChild("title")
+        if lbl and lbl:IsA("TextLabel") then text = lbl.Text end
+
+        if text:find("already in an active mission", 1, true) then
+            SetStatus("⚠️ Lỗi kẹt Queue -> Reset!", Color3.fromRGB(255, 80, 80))
+            ResetCharacter()
+            return
+        end
+
+        local oppMatch = text:match("Your opponent is <font.->(.-)</font>")
+        if oppMatch then
+            if Cfg.TargetName ~= "" and string.lower(oppMatch) ~= string.lower(Cfg.TargetName) then
+                SetStatus("⚠️ Gặp người lạ: " .. oppMatch .. " -> Né!", Color3.fromRGB(255, 80, 80))
+                ResetCharacter()
+            else
+                SetStatus("⚔️ Đụng độ: " .. oppMatch, Color3.fromRGB(100, 255, 100))
+            end
+        end
+    end)
+end
+
+task.spawn(function()
+    while true do
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        local notifGui = pg and pg:FindFirstChild("Notifications")
+        local holder = notifGui and notifGui:FindFirstChild("holder")
+
+        if holder then
+            if not globalNotifConn then
+                globalNotifConn = holder.ChildAdded:Connect(HandleNotification)
+            end
+        else
+            if globalNotifConn then globalNotifConn:Disconnect(); globalNotifConn = nil end
+        end
+        task.wait(2)
+    end
+end)
 
 -- ── Hệ thống tìm & Blacklist Bảng ─────────────────────────────────────────────
 local currentBoard = nil
@@ -111,7 +183,6 @@ local function GetClosestBoard()
         blacklistedBoards = {}
         return nil
     end
-
     currentBoard = closest
     return closest
 end
@@ -159,11 +230,9 @@ local function PressBoard(board, rootPart)
         prompt.HoldDuration          = oldHold
         prompt.MaxActivationDistance = oldDist
     end)
-
     task.wait(0.3)
 end
 
--- ── Theo dõi notification ────────────────────────────────────────────────────
 local function WatchLeft(onLeft)
     local pg       = LocalPlayer:FindFirstChild("PlayerGui")
     local notifGui = pg and pg:FindFirstChild("Notifications")
@@ -182,16 +251,7 @@ local function WatchLeft(onLeft)
         end
         check()
     end)
-
     return function() conn:Disconnect() end
-end
-
-local StatusLabel 
-local function SetStatus(text, color)
-    if StatusLabel then
-        StatusLabel.Text      = text
-        StatusLabel.TextColor3 = color or Color3.fromRGB(180, 165, 220)
-    end
 end
 
 -- ============================================================
@@ -205,7 +265,7 @@ local function MainLoop()
         local char    = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         local root    = char:WaitForChild("HumanoidRootPart", 10)
         local hum     = char:WaitForChild("Humanoid", 10)
-        if not root or not hum then task.wait(1) continue end
+        if not root or not hum or hum.Health <= 0 then task.wait(1) continue end
 
         local board = GetClosestBoard()
         if not board then
@@ -241,6 +301,7 @@ local function MainLoop()
 
         local attempt = 0
         while Cfg.MainActive and not joined do
+            if not root or not root.Parent or hum.Health <= 0 then break end 
             attempt = attempt + 1
             if attempt > 8 then
                 SetStatus("⚠️ Bảng bị lỗi, đổi bảng khác...", Color3.fromRGB(220, 150, 80))
@@ -252,12 +313,22 @@ local function MainLoop()
 
             SetStatus(string.format("🔄 Main: ấn E... (lần %d)", attempt), Color3.fromRGB(180, 160, 220))
             PressBoard(board, root)
+            
             local w = 0
-            while w < 3 and not joined do task.wait(0.25) w = w + 0.25 end
+            while w < 3 and not joined do 
+                if hum.Health <= 0 then break end
+                local d = (root.Position - boardCF.Position).Magnitude
+                if d > 10 and d < 50 then
+                    root.CFrame = boardCF * CFrame.new(0, 0, 0)
+                    root.Velocity = Vector3.zero
+                end
+                task.wait(0.1) 
+                w = w + 0.1 
+            end
         end
         if joinConn then joinConn:Disconnect() end
 
-        if not joined and attempt > 8 then
+        if hum.Health <= 0 or (not joined and attempt > 8) then
             continue
         end
 
@@ -269,17 +340,32 @@ local function MainLoop()
         local left      = false
         local stopWatch = WatchLeft(function() left = true end)
 
+        local queueElapsed = 0
+        -- ANTI-STUCK: Kẹt hàng chờ quá 2 phút thì tự reset để vớt vòng lặp
         while Cfg.MainActive and not left do
             if not root or not root.Parent or hum.Health <= 0 then break end
-            if boardCF and (root.Position - boardCF.Position).Magnitude > 50 then
-                left = true
+            local dist = (root.Position - boardCF.Position).Magnitude
+            if dist > 50 then
+                left = true 
+            elseif dist > 10 then
+                root.CFrame = boardCF * CFrame.new(0, 0, 0)
+                root.Velocity = Vector3.zero
             end
             task.wait(0.5)
+            queueElapsed = queueElapsed + 0.5
+            
+            if queueElapsed > 120 then
+                SetStatus("⚠️ Treo Queue quá lâu -> Reset để thử lại!", Color3.fromRGB(255, 80, 80))
+                ResetCharacter()
+                break
+            end
         end
 
         stopWatch()
-        SetStatus("↩️ Main: chờ rồi lặp lại...", Color3.fromRGB(160, 140, 200))
-        task.wait(2)
+        if hum.Health > 0 then
+            SetStatus("↩️ Main: chờ rồi lặp lại...", Color3.fromRGB(160, 140, 200))
+            task.wait(2)
+        end
     end
     StopCameraLock()
     SetStatus("⏹️ Main: đã tắt", Color3.fromRGB(120, 110, 150))
@@ -296,7 +382,7 @@ local function AltLoop()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         local root = char:WaitForChild("HumanoidRootPart", 10)
         local hum  = char:WaitForChild("Humanoid", 10)
-        if not root or not hum then task.wait(1) continue end
+        if not root or not hum or hum.Health <= 0 then task.wait(1) continue end
 
         local board = GetClosestBoard()
         if not board then
@@ -332,6 +418,7 @@ local function AltLoop()
 
         local attempt2 = 0
         while Cfg.AltActive and not joined do
+            if not root or not root.Parent or hum.Health <= 0 then break end
             attempt2 = attempt2 + 1
             if attempt2 > 8 then
                 SetStatus("⚠️ Bảng bị lỗi, đổi bảng khác...", Color3.fromRGB(220, 150, 80))
@@ -343,12 +430,22 @@ local function AltLoop()
 
             SetStatus(string.format("🔄 Alt: ấn E... (lần %d)", attempt2), Color3.fromRGB(220, 160, 140))
             PressBoard(board, root)
+            
             local w = 0
-            while w < 3 and not joined do task.wait(0.25) w = w + 0.25 end
+            while w < 3 and not joined do 
+                if hum.Health <= 0 then break end
+                local d = (root.Position - boardCF.Position).Magnitude
+                if d > 10 and d < 50 then
+                    root.CFrame = boardCF * CFrame.new(0, 0, 0)
+                    root.Velocity = Vector3.zero
+                end
+                task.wait(0.1) 
+                w = w + 0.1 
+            end
         end
         if joinConn2 then joinConn2:Disconnect() end
 
-        if not joined and attempt2 > 8 then
+        if hum.Health <= 0 or (not joined and attempt2 > 8) then
             continue
         end
 
@@ -359,22 +456,30 @@ local function AltLoop()
 
         local teleported = false
         local elapsed    = 0
-        while Cfg.AltActive and not teleported and elapsed < 90 do
+        
+        -- ANTI-STUCK: Kẹt hàng chờ quá 2 phút (120s) thì tự reset
+        while Cfg.AltActive and not teleported and elapsed < 120 do
             if not root or not root.Parent or hum.Health <= 0 then break end
-            if boardCF and (root.Position - boardCF.Position).Magnitude > 50 then
-                teleported = true
+            local dist = (root.Position - boardCF.Position).Magnitude
+            if dist > 50 then
+                teleported = true 
+            elseif dist > 10 then
+                root.CFrame = boardCF * CFrame.new(0, 0, 0)
+                root.Velocity = Vector3.zero
             end
             task.wait(0.5)
             elapsed = elapsed + 0.5
         end
 
-        if teleported and Cfg.AltActive then
+        if teleported and Cfg.AltActive and hum.Health > 0 then
             SetStatus("💀 Alt: thua → respawn...", Color3.fromRGB(220, 80, 80))
-            task.wait(3)
-            local c2  = LocalPlayer.Character
-            local h2  = c2 and c2:FindFirstChildOfClass("Humanoid")
-            if h2 then h2.Health = 0 end
+            task.wait(3) 
+            ResetCharacter()
             LocalPlayer.CharacterAdded:Wait()
+            task.wait(2)
+        elseif elapsed >= 120 then
+            SetStatus("⚠️ Treo Queue quá lâu -> Reset để thử lại!", Color3.fromRGB(255, 80, 80))
+            ResetCharacter()
             task.wait(2)
         else
             task.wait(1)
@@ -412,14 +517,14 @@ ScreenGui.IgnoreGuiInset = true
 ScreenGui.ResetOnSpawn   = false
 ScreenGui.Parent         = guiParent
 
-local W, H = 270, 244
+local W, H = 270, 285
 local Frame = Instance.new("Frame")
 Frame.Size             = UDim2.new(0, W, 0, H)
 Frame.Position         = UDim2.new(0.5, -W/2, 0, 24)
 Frame.BackgroundColor3 = Color3.fromRGB(10, 8, 18)
 Frame.Active           = true
 Frame.Draggable        = true
-Frame.ClipsDescendants = true
+Frame.ClipsDescendants = false 
 Frame.Parent           = ScreenGui
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 16)
 
@@ -471,15 +576,14 @@ TitleLbl.TextXAlignment     = Enum.TextXAlignment.Left
 TitleLbl.ZIndex             = 3
 TitleLbl.Parent             = Header
 
--- FIXED CÁI NÚT X TẠI ĐÂY
 local CloseGui = Instance.new("TextButton")
-CloseGui.Size             = UDim2.new(0, 24, 0, 24)
+CloseGui.Size             = UDim2.new(0, 26, 0, 26)
 CloseGui.AnchorPoint      = Vector2.new(1, 0.5)
 CloseGui.Position         = UDim2.new(1, -10, 0.5, 0)
-CloseGui.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+CloseGui.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 CloseGui.Text             = "X"
 CloseGui.Font             = Enum.Font.GothamBold
-CloseGui.TextSize         = 12
+CloseGui.TextSize         = 13
 CloseGui.TextColor3       = Color3.fromRGB(255, 255, 255)
 CloseGui.ZIndex           = 5
 CloseGui.Parent           = Header
@@ -600,10 +704,7 @@ local function MakeToggle(label, yPos, activeCol, inactiveCol, initState, onTogg
         if not skipCallback then onToggle(val) end
     end
 
-    Btn.MouseButton1Click:Connect(function()
-        SetActive(not active)
-    end)
-
+    Btn.MouseButton1Click:Connect(function() SetActive(not active) end)
     if initState then SetActive(true, true) end
     return SetActive
 end
@@ -611,10 +712,8 @@ end
 local setMain = MakeToggle("Main", 74, Color3.fromRGB(80, 210, 130), Color3.fromRGB(50, 80, 55),
     Cfg.MainActive,
     function(val)
-        Cfg.MainActive = val
-        SaveCfg()
-        if val then
-            mainThread = task.spawn(MainLoop)
+        Cfg.MainActive = val; SaveCfg()
+        if val then mainThread = task.spawn(MainLoop)
         else
             if mainThread then task.cancel(mainThread) mainThread = nil end
             SetStatus("⏹️  Main tắt", Color3.fromRGB(120, 110, 150))
@@ -625,10 +724,8 @@ local setMain = MakeToggle("Main", 74, Color3.fromRGB(80, 210, 130), Color3.from
 local setAlt = MakeToggle("Alt", 132, Color3.fromRGB(220, 90, 90), Color3.fromRGB(80, 40, 40),
     Cfg.AltActive,
     function(val)
-        Cfg.AltActive = val
-        SaveCfg()
-        if val then
-            altThread = task.spawn(AltLoop)
+        Cfg.AltActive = val; SaveCfg()
+        if val then altThread = task.spawn(AltLoop)
         else
             if altThread then task.cancel(altThread) altThread = nil end
             SetStatus("⏹️  Alt tắt", Color3.fromRGB(120, 110, 150))
@@ -636,10 +733,114 @@ local setAlt = MakeToggle("Alt", 132, Color3.fromRGB(220, 90, 90), Color3.fromRG
     end
 )
 
+-- ── Dropdown Target Name & Refresh ────────────────────────────────────────────
+local TargetRow = Instance.new("Frame")
+TargetRow.Size             = UDim2.new(1, -20, 0, 32)
+TargetRow.Position         = UDim2.new(0, 10, 0, 190)
+TargetRow.BackgroundColor3 = Color3.fromRGB(16, 12, 28)
+TargetRow.ZIndex           = 2
+TargetRow.Parent           = Frame
+Instance.new("UICorner", TargetRow).CornerRadius = UDim.new(0, 9)
+
+local targetStroke = Instance.new("UIStroke")
+targetStroke.Color     = Color3.fromRGB(55, 40, 90)
+targetStroke.Thickness = 1
+targetStroke.Parent    = TargetRow
+
+local TargetIcon = Instance.new("TextLabel")
+TargetIcon.Size               = UDim2.new(0, 24, 1, 0)
+TargetIcon.Position           = UDim2.new(0, 8, 0, 0)
+TargetIcon.BackgroundTransparency = 1
+TargetIcon.Text               = "🎯"
+TargetIcon.TextSize           = 14
+TargetIcon.Font               = Enum.Font.GothamBold
+TargetIcon.ZIndex             = 3
+TargetIcon.Parent             = TargetRow
+
+local TargetBtn = Instance.new("TextButton")
+TargetBtn.Size = UDim2.new(1, -66, 1, 0)
+TargetBtn.Position = UDim2.new(0, 36, 0, 0)
+TargetBtn.BackgroundTransparency = 1
+TargetBtn.Font = Enum.Font.GothamBold
+TargetBtn.TextSize = 11
+TargetBtn.TextColor3 = Color3.fromRGB(200, 190, 220)
+TargetBtn.TextXAlignment = Enum.TextXAlignment.Left
+TargetBtn.Text = Cfg.TargetName == "" and "Mục tiêu: Ai cũng bắn" or "Mục tiêu: " .. Cfg.TargetName
+TargetBtn.ZIndex = 3
+TargetBtn.Parent = TargetRow
+
+local RefreshBtn = Instance.new("TextButton")
+RefreshBtn.Size = UDim2.new(0, 24, 0, 24)
+RefreshBtn.Position = UDim2.new(1, -28, 0.5, -12)
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(50, 40, 80)
+RefreshBtn.Text = "🔄"
+RefreshBtn.Font = Enum.Font.Gotham
+RefreshBtn.TextSize = 12
+RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RefreshBtn.ZIndex = 4
+RefreshBtn.Parent = TargetRow
+Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 6)
+
+local TargetScroll = Instance.new("ScrollingFrame")
+TargetScroll.Size = UDim2.new(1, 0, 0, 130)
+TargetScroll.Position = UDim2.new(0, 0, 1, 4)
+TargetScroll.BackgroundColor3 = Color3.fromRGB(30, 22, 45)
+TargetScroll.BorderSizePixel = 0
+TargetScroll.Visible = false
+TargetScroll.ZIndex = 10
+TargetScroll.ScrollBarThickness = 4
+TargetScroll.Parent = TargetRow
+Instance.new("UICorner", TargetScroll).CornerRadius = UDim.new(0, 6)
+local TLayout = Instance.new("UIListLayout")
+TLayout.Parent = TargetScroll
+TLayout.Padding = UDim.new(0, 2)
+
+local function UpdatePlayerList()
+    for _, c in ipairs(TargetScroll:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    
+    local function addP(name, txt)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(1, 0, 0, 26)
+        b.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
+        b.BorderSizePixel = 0
+        b.Text = "  " .. txt
+        b.Font = Enum.Font.Gotham
+        b.TextSize = 11
+        b.TextColor3 = Color3.fromRGB(220, 220, 220)
+        b.TextXAlignment = Enum.TextXAlignment.Left
+        b.ZIndex = 11
+        b.Parent = TargetScroll
+        b.MouseButton1Click:Connect(function()
+            Cfg.TargetName = name
+            TargetBtn.Text = name == "" and "Mục tiêu: Ai cũng bắn" or "Mục tiêu: " .. name
+            SaveCfg()
+            TargetScroll.Visible = false
+        end)
+    end
+    
+    addP("", "Ai cũng bắn (Bỏ qua tên)")
+    local count = 1
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            addP(p.Name, p.Name)
+            count = count + 1
+        end
+    end
+    TargetScroll.CanvasSize = UDim2.new(0, 0, 0, count * 28)
+end
+
+RefreshBtn.MouseButton1Click:Connect(UpdatePlayerList)
+TargetBtn.MouseButton1Click:Connect(function()
+    UpdatePlayerList()
+    TargetScroll.Visible = not TargetScroll.Visible
+end)
+
 -- ── Nút nhỏ: Lock Camera ──────────────────────────────────────────────────────
 local CamRow = Instance.new("TextButton")
 CamRow.Size             = UDim2.new(1, -20, 0, 32)
-CamRow.Position         = UDim2.new(0, 10, 0, 190)
+CamRow.Position         = UDim2.new(0, 10, 0, 230)
 CamRow.BackgroundColor3 = Color3.fromRGB(16, 12, 28)
 CamRow.Text             = ""
 CamRow.ZIndex           = 2
