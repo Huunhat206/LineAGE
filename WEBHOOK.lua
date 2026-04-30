@@ -8,69 +8,37 @@ local Config = {
 
 local LOGO_URL = "https://static.wikia.nocookie.net/blineage/images/e/e6/Site-logo.png/revision/latest?cb=20260310145648"
 
--- Khai báo hàm hệ thống an toàn (phòng trường hợp executor dỏm không hỗ trợ)
 local isf = isfile or function() return false end
 local rnf = readfile or function() return "{}" end
 local wtf = writefile or function() end
 
--- Chờ Data của nhân vật load xong
 LocalPlayer:WaitForChild("PlayerData", 9e9)
 
 local function GetPlayerData()
-    local data = {
-        Name      = LocalPlayer.Name,
-        Level     = 0,
-        Stand     = "None",
-        Tokens    = {},
-        Inventory = {}
-    }
-
+    local data = { Name = LocalPlayer.Name, Level = 0, Stand = "None", Tokens = {}, Inventory = {} }
     local pData = LocalPlayer:FindFirstChild("PlayerData")
     if pData and pData:FindFirstChild("SlotData") then
         local slot = pData.SlotData
-
-        -- 1. Lấy Level
-        if slot:FindFirstChild("Level") then
-            data.Level = slot.Level.Value
-        end
-
-        -- 2. Lấy Stand
+        if slot:FindFirstChild("Level") then data.Level = slot.Level.Value end
         if slot:FindFirstChild("Stand") then
             local standStr = tostring(slot.Stand.Value)
             local ok, decoded = pcall(HttpService.JSONDecode, HttpService, standStr)
-            if ok and type(decoded) == "table" and decoded.Name then
-                data.Stand = decoded.Name
-            else
-                data.Stand = string.match(standStr, '"Name"%s*:%s*"([^"]+)"') or "None"
-            end
+            data.Stand = (ok and type(decoded) == "table") and decoded.Name or (string.match(standStr, '"Name"%s*:%s*"([^"]+)"') or "None")
         end
-
-        -- 3. Lấy Raid Tokens
         if slot:FindFirstChild("RaidTokens") then
-            local tokenStr = tostring(slot.RaidTokens.Value)
-            local ok, decoded = pcall(HttpService.JSONDecode, HttpService, tokenStr)
-            if ok and type(decoded) == "table" then
-                data.Tokens = decoded
-            end
+            local ok, decoded = pcall(HttpService.JSONDecode, HttpService, tostring(slot.RaidTokens.Value))
+            if ok then data.Tokens = decoded end
         end
-
-        -- 4. Lấy Inventory (Kho đồ)
         if slot:FindFirstChild("Inventory") then
-            local invStr = tostring(slot.Inventory.Value)
-            local ok, decoded = pcall(HttpService.JSONDecode, HttpService, invStr)
+            local ok, decoded = pcall(HttpService.JSONDecode, HttpService, tostring(slot.Inventory.Value))
             if ok and type(decoded) == "table" then
-                -- Quét linh hoạt đề phòng game dùng định dạng Mảng hoặc Dictionary
                 for k, v in pairs(decoded) do
-                    if type(v) == "number" then
-                        data.Inventory[k] = v
-                    elseif type(v) == "table" and v.Name and v.Amount then
-                        data.Inventory[v.Name] = v.Amount
-                    end
+                    if type(v) == "number" then data.Inventory[k] = v
+                    elseif type(v) == "table" and v.Name then data.Inventory[v.Name] = v.Amount end
                 end
             end
         end
     end
-
     return data
 end
 
@@ -80,66 +48,77 @@ local function ProcessInventoryDiff(currentInv)
     local newItemsCount = 0
 
     if isf(fileName) then
-        -- Lấy file cũ ra đọc
         local ok, savedData = pcall(function() return HttpService:JSONDecode(rnf(fileName)) end)
         if ok and type(savedData) == "table" then
             for itemName, currentAmount in pairs(currentInv) do
                 local oldAmount = savedData[itemName] or 0
-                -- Nếu số lượng tăng lên, ghi vào báo cáo
                 if currentAmount > oldAmount then
-                    diffText = diffText .. string.format("• **%s:** `+%d`\n", itemName, currentAmount - oldAmount)
+                    -- Định dạng kiểu log hệ thống: [+] Item Name ... +Amount
+                    diffText = diffText .. string.format("`[+]` **%s** ➔ `%+d`\n", itemName, currentAmount - oldAmount)
                     newItemsCount = newItemsCount + 1
                 end
             end
         end
-        if newItemsCount == 0 then
-            diffText = "*Không nhận thêm item mới nào.*"
-        end
+        if newItemsCount == 0 then diffText = "▫️ *No new items detected.*" end
     else
-        -- Nếu chưa có file (lần đầu chạy), báo tạo mốc
-        diffText = "*Lần đầu khởi chạy! Đã thiết lập mốc dữ liệu gốc.*"
+        diffText = "🆕 *First boot: Baseline data established.*"
     end
-
-    -- Lưu kho đồ hiện tại đè lên file cũ để làm mốc cho lần sau
-    pcall(function()
-        wtf(fileName, HttpService:JSONEncode(currentInv))
-    end)
-
+    pcall(function() wtf(fileName, HttpService:JSONEncode(currentInv)) end)
     return diffText
 end
 
 local function SendWebhook()
     if Config.WebhookURL == "" then return end
-
     local data = GetPlayerData()
     
-    -- Xử lý chuỗi Raid Tokens
-    local tokensStr = ""
+    -- [NÂNG CẤP] Tạo bảng Token giả lập (Pseudo-Table)
+    -- Sử dụng ký tự box-drawing để tạo khung
+    local tokensTable = "```\n┌──────┬──────────┐\n│ TOKEN│ AMOUNT  │\n├──────┼──────────┤\n"
+    local hasTokens = false
     for name, amt in pairs(data.Tokens) do
-        tokensStr = tokensStr .. string.format("**%s:** %d\n", name, amt)
+        hasTokens = true
+        local nameClipped = name:sub(1, 5):ljust(5) -- Cắt tên token để vừa bảng
+        tokensTable = tokensTable .. string.format("│ %-5s│ %-8s│\n", nameClipped, tostring(amt))
     end
-    if tokensStr == "" then tokensStr = "*Không có token nào.*" end
+    
+    if not hasTokens then 
+        tokensTable = "```\n*No tokens available in storage.*" 
+    else 
+        tokensTable = tokensTable .. "└──────┴──────────┘\n```"
+    end
 
-    -- Xử lý chuỗi Inventory Diff (Đồ mới)
     local newItemsStr = ProcessInventoryDiff(data.Inventory)
 
-    -- Cấu trúc Webhook
+    -- [NÂNG CẤP] Embed Layout siêu sang
     local embedData = {
-        username   = "Nthuc Hub Auto",
+        username   = "Nthuc Hub | System Logger",
         avatar_url = LOGO_URL,
         embeds = {{
-            title       = "📊 Nthuc Hub · Autoexec Report",
-            description = string.format("Báo cáo tài khoản lúc <t:%d:F>", os.time()),
+            title       = "💠 SESSION DATA REPORT",
+            description = string.format("📡 **Status:** `Online` | **Session:** `S-LOG`\n**Timestamp:** <t:%d:f> (<t:%d:R>)\n━━━━━━━━━━━━━━━━━━━━━━━━━━", os.time(), os.time()),
             color       = 0x7B68EE,
             thumbnail   = { url = LOGO_URL },
             fields = {
-                { name = "👤 Người Chơi",   value = string.format("`%s`", data.Name),        inline = true  },
-                { name = "⭐ Level",        value = string.format("`%s`", tostring(data.Level)), inline = true  },
-                { name = "🛡️ Stand",       value = string.format("`%s`", data.Stand),        inline = false },
-                { name = "💰 Raid Tokens",   value = tokensStr,                                inline = false },
-                { name = "🎁 Items (New)",   value = newItemsStr,                              inline = false }
+                { 
+                    name = "👤 USER PROFILE", 
+                    value = string.format("```yaml\nName:  %s\nLevel: %s\nStand: %s\n```", data.Name, tostring(data.Level), data.Stand), 
+                    inline = false 
+                },
+                { 
+                    name = "💰 RAID TOKENS", 
+                    value = tokensTable, 
+                    inline = false 
+                },
+                { 
+                    name = "🎁 INVENTORY LOG (NEW)", 
+                    value = newItemsStr, 
+                    inline = false 
+                },
             },
-            footer = { text = "Nthuc Hub  •  Silent Autoexec", icon_url = LOGO_URL },
+            footer = { 
+                text = "Nthuc Hub Premium • Secure Data Transmission", 
+                icon_url = LOGO_URL 
+            },
             timestamp = DateTime.now():ToIsoDate()
         }}
     }
@@ -157,7 +136,6 @@ local function SendWebhook()
     end
 end
 
--- Chờ 5 giây sau khi load script/game để đảm bảo mọi thứ đã tải xong rồi gửi Webhook
 task.spawn(function()
     task.wait(5)
     SendWebhook()
