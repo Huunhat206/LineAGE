@@ -71,13 +71,14 @@ local function SendWebhook()
     if Config.WebhookURL == "" then return end
     local data = GetPlayerData()
     
-    -- [NÂNG CẤP] Tạo bảng Token giả lập (Pseudo-Table)
+-- [NÂNG CẤP] Tạo bảng Token giả lập (Pseudo-Table)
     -- Sử dụng ký tự box-drawing để tạo khung
-    local tokensTable = "```\n┌──────┬──────────┐\n│ TOKEN│ AMOUNT  │\n├──────┼──────────┤\n"
+    local tokensTable = "```\n┌──────┬──────────┐\n│ TOKEN│ AMOUNT   │\n├──────┼──────────┤\n"
     local hasTokens = false
     for name, amt in pairs(data.Tokens) do
         hasTokens = true
-        local nameClipped = name:sub(1, 5):ljust(5) -- Cắt tên token để vừa bảng
+        -- Xóa :ljust(5) vì string.format %-5s đã lo phần đệm khoảng trắng rồi
+        local nameClipped = name:sub(1, 5) 
         tokensTable = tokensTable .. string.format("│ %-5s│ %-8s│\n", nameClipped, tostring(amt))
     end
     
