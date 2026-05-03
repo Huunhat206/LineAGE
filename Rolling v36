@@ -1,7 +1,7 @@
--- ╔══════════════════════════════════════════╗
--- ║   Nthuc Hub | Auto Arrow v4.2 (FIXED)    ║
--- ║   Zero Start Delay + No Roka Logic       ║
--- ╚══════════════════════════════════════════╝
+-- ╔══════════════════════════════════════════════════════════╗
+-- ║       Nthuc Hub | Auto Arrow v4.5 Skin Hunter            ║
+-- ║  Zero Start Delay + No Roka + Searchable Skin Dropdown   ║
+-- ╚══════════════════════════════════════════════════════════╝
 
 local Players           = game:GetService("Players")
 local HttpService       = game:GetService("HttpService")
@@ -31,6 +31,33 @@ local TraitData = {
     Mythical  = {"Demonic", "Elegant", "Feral", "Transcendent"}
 }
 
+local SkinData = {
+    "C-Moon (Blue)", "C-Moon (Deimos)", "C-Moon (Greyscale)", "C-Moon (Momo)", "C-Moon (Tatsumaki)",
+    "Crazy Diamond (Dark Armored)", "Crazy Diamond (Greyscale)", "Crazy Diamond (Light Armored)", "Crazy Diamond (Luffy)", "Crazy Diamond (Reverso)",
+    "Death 13 (King of Spades)", "Death 13 (Maka)", "Death 13 (Reaper 13)",
+    "Diver Down (Fox Demon)", "Diver Down (Greyscale)", "Diver Down (Highlighter)",
+    "Gold Experience (Atom Eve)", "Gold Experience (Green)", "Gold Experience (Greyscale)",
+    "Killer Queen (Bomb Devil)", "Killer Queen (Greyscale)", "Killer Queen (One Who Laughs)", "Killer Queen (Tan)",
+    "King Crimson (Blue)", "King Crimson (Deimos)", "King Crimson (Igris)", "King Crimson (Kawaii)", "King Crimson (Omni Man)", "King Crimson (Sukuna)",
+    "Made in Heaven (Greyscale)",
+    "Magician's Red (Greyscale)", "Magician's Red (King)", "Magician's Red (Orange)", "Magician's Red (Sun Deity)",
+    "Planet Waves (Escanor)", "Planet Waves (Greyscale)",
+    "Purple Haze (Greyscale)", "Purple Haze (Poison)", "Purple Haze (Purple Monarch)",
+    "Red Hot Chili Pepper (Greyscale)", "Red Hot Chili Pepper (Purple)", "Red Hot Chili Pepper (Yoruichi)",
+    "Silver Chariot (Cyborg Samurai)", "Silver Chariot (Silver Floridian)",
+    "Silver Chariot Requiem (Comic Omni Man)", "Silver Chariot Requiem (The Knight)",
+    "Star Platinum (Deimos)", "Star Platinum (Galaxy Garou)", "Star Platinum (Greyscale)", "Star Platinum (Holiday)", "Star Platinum (Kawaii)",
+    "Star Platinum, The World (Greyscale)", "Star Platinum, The World (Invincible)", "Star Platinum, The World (The Strongest)",
+    "Stone Free (Carnage)", "Stone Free (Greyscale)", "Stone Free (Makima)", "Stone Free (Turqoise)", "Stone Free (Ultimate Makima)",
+    "The Hand (Greyscale)", "The Hand (Purple)",
+    "The World (Dark)", "The World (Egyptian)", "The World (Goku)", "The World (Greyscale)", "The World (Kawaii)",
+    "The World Over Heaven (Above Heaven)", "The World Over Heaven (Conquest)", "The World Over Heaven (Greyscale)", "The World Over Heaven (King of Curses)",
+    "The World, High Voltage (Baby SJW)", "The World, High Voltage (GOD SJW)", "The World, High Voltage (Greyscale)", "The World, High Voltage (Lima)", "The World, High Voltage (Prestige)", "The World, High Voltage (Violence)",
+    "True Made in Heaven (Dullahan)", "True Made in Heaven (Greyscale)", "True Made in Heaven (High Contrast)", "True Made in Heaven (Made in Underworld)",
+    "Weather Report (Esdeath)", "Weather Report (Fubuki)", "Weather Report (Greyscale)", "Weather Report (Nami)", "Weather Report (Pinky)",
+    "Whitesnake (Greyscale)", "Whitesnake (Ryuk)", "Whitesnake (Velvet)"
+}
+
 local RarityColor = {
     Common    = Color3.fromRGB(180, 180, 180),
     Uncommon  = Color3.fromRGB(80, 210, 130),
@@ -45,7 +72,7 @@ local RarityColor = {
 local WEBHOOK_URL = "https://discord.com/api/webhooks/1498312008041496677/bwkREm2-7DhiHjn70oMAIzHyxij6rplXnvg2GmtHTCGfxKlbyGn7iKWNEy7qW0G1cETh"
 local LOGO_URL    = "https://static.wikia.nocookie.net/blineage/images/e/e6/Site-logo.png/revision/latest?cb=20260310145648"
 
-local function SendWebhook(standName, traitName, rollCount)
+local function SendWebhook(standName, traitName, skinName, rollCount)
     local rarityFound = "Unknown"
     for _, r in ipairs(RarityOrder) do
         if StandData[r] then
@@ -67,11 +94,12 @@ local function SendWebhook(standName, traitName, rollCount)
             title = "🎯 ROLL THÀNH CÔNG!",
             color = rarityColorNum[rarityFound] or 0x7B68EE,
             fields = {
-                { name="🗡  Stand",    value="```"..standName.."```",   inline=true },
-                { name="✨ Trait",     value="```"..traitName.."```",   inline=true },
-                { name="🎲 Rarity",  value="```"..rarityFound.."```",  inline=true },
-                { name="🔄 Số lần roll", value="```"..tostring(rollCount).."```", inline=true },
-                { name="👤 Player",  value="```"..LocalPlayer.Name.."```", inline=true },
+                { name="🗡 Stand",    value="```\n" .. standName .. "\n```",   inline=true },
+                { name="✨ Trait",    value="```\n" .. traitName .. "\n```",   inline=true },
+                { name="🎭 Skin",     value="```\n" .. skinName .. "\n```",    inline=true },
+                { name="🎲 Rarity",   value="```\n" .. rarityFound .. "\n```", inline=true },
+                { name="🔄 Số lần",   value="```\n" .. tostring(rollCount) .. "\n```", inline=true },
+                { name="👤 Player",   value="```\n" .. LocalPlayer.Name .. "\n```", inline=true },
             },
             footer    = { text="Nthuc Hub Auto Arrow • "..LocalPlayer.Name, icon_url=LOGO_URL },
             timestamp = DateTime.now():ToIsoDate()
@@ -118,8 +146,8 @@ GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Parent = GuiParent
 
 local Win = Instance.new("Frame")
-Win.Size = UDim2.new(0, 300, 0, 270)
-Win.Position = UDim2.new(0.5, -150, 0.5, -135)
+Win.Size = UDim2.new(0, 300, 0, 340)
+Win.Position = UDim2.new(0.5, -150, 0.5, -170)
 Win.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
 Win.BorderSizePixel = 0
 Win.Parent = GUI
@@ -192,6 +220,7 @@ BodyLayout.Parent = Body
 
 local activeDropdownPanel = nil
 
+-- HÀM TẠO DROPDOWN THƯỜNG
 local function MakeDropdown(labelText, dataTable, placeholder, layoutOrder, onChangeCallback)
     local selectedValue = nil
     local Container = Instance.new("Frame")
@@ -233,16 +262,6 @@ local function MakeDropdown(labelText, dataTable, placeholder, layoutOrder, onCh
     BtnText.TextXAlignment = Enum.TextXAlignment.Left
     BtnText.Parent = Btn
 
-    local Arrow = Instance.new("TextLabel")
-    Arrow.Size = UDim2.new(0, 20, 1, 0)
-    Arrow.Position = UDim2.new(1, -25, 0, 0)
-    Arrow.BackgroundTransparency = 1
-    Arrow.Text = "v" 
-    Arrow.TextColor3 = Color3.fromRGB(130, 110, 190)
-    Arrow.Font = Enum.Font.GothamBold
-    Arrow.TextSize = 12
-    Arrow.Parent = Btn
-
     local Panel = Instance.new("ScrollingFrame")
     Panel.Size = UDim2.new(0, 276, 0, 150)
     Panel.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
@@ -260,6 +279,10 @@ local function MakeDropdown(labelText, dataTable, placeholder, layoutOrder, onCh
     local PLayout = Instance.new("UIListLayout")
     PLayout.SortOrder = Enum.SortOrder.LayoutOrder
     PLayout.Parent = Panel
+    
+    PLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Panel.CanvasSize = UDim2.new(0, 0, 0, PLayout.AbsoluteContentSize.Y)
+    end)
 
     local itemCount = 0
     local function AddItem(name, color, isHeader)
@@ -307,12 +330,9 @@ local function MakeDropdown(labelText, dataTable, placeholder, layoutOrder, onCh
             end
         end
     end
-    Panel.CanvasSize = UDim2.new(0, 0, 0, itemCount * 24)
 
     Btn.MouseButton1Click:Connect(function()
-        if activeDropdownPanel and activeDropdownPanel ~= Panel then
-            activeDropdownPanel.Visible = false
-        end
+        if activeDropdownPanel and activeDropdownPanel ~= Panel then activeDropdownPanel.Visible = false end
         if Panel.Visible then
             Panel.Visible = false
             activeDropdownPanel = nil
@@ -323,23 +343,165 @@ local function MakeDropdown(labelText, dataTable, placeholder, layoutOrder, onCh
             activeDropdownPanel = Panel
         end
     end)
-
-    return Container
 end
 
-local TargetStand, TargetTrait = nil, nil
-MakeDropdown("TARGET STAND (Tuỳ chọn)", StandData, "Chọn Stand...", 1, function(v) TargetStand = v end)
-MakeDropdown("TARGET TRAIT (Tuỳ chọn)", TraitData, "Chọn Trait...", 2, function(v) TargetTrait = v end)
+-- HÀM TẠO DROPDOWN CÓ TÌM KIẾM CHO SKIN
+local function MakeSearchableDropdown(labelText, dataList, placeholder, layoutOrder, onChangeCallback)
+    local selectedValue = nil
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 48)
+    Container.BackgroundTransparency = 1
+    Container.LayoutOrder = layoutOrder
+    Container.Parent = Body
+
+    local Lbl = Instance.new("TextLabel")
+    Lbl.Size = UDim2.new(1, 0, 0, 14)
+    Lbl.BackgroundTransparency = 1
+    Lbl.Text = "• " .. labelText
+    Lbl.TextColor3 = Color3.fromRGB(250, 200, 80)
+    Lbl.Font = Enum.Font.GothamBold
+    Lbl.TextSize = 10
+    Lbl.TextXAlignment = Enum.TextXAlignment.Left
+    Lbl.Parent = Container
+
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 30)
+    Btn.Position = UDim2.new(0, 0, 0, 16)
+    Btn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    Btn.Text = ""
+    Btn.AutoButtonColor = false
+    Btn.Parent = Container
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", Btn).Color = Color3.fromRGB(85, 75, 50)
+
+    local BtnText = Instance.new("TextLabel")
+    BtnText.Size = UDim2.new(1, -30, 1, 0)
+    BtnText.Position = UDim2.new(0, 10, 0, 0)
+    BtnText.BackgroundTransparency = 1
+    BtnText.Text = placeholder
+    BtnText.TextColor3 = Color3.fromRGB(160, 150, 180)
+    BtnText.Font = Enum.Font.Gotham
+    BtnText.TextSize = 11
+    BtnText.TextXAlignment = Enum.TextXAlignment.Left
+    BtnText.Parent = Btn
+
+    local Panel = Instance.new("ScrollingFrame")
+    Panel.Size = UDim2.new(0, 276, 0, 180)
+    Panel.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+    Panel.BorderSizePixel = 0
+    Panel.ZIndex = 100
+    Panel.Visible = false
+    Panel.ScrollBarThickness = 3
+    Panel.ScrollBarImageColor3 = Color3.fromRGB(150, 130, 70)
+    Panel.Parent = GUI
+    Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", Panel).Color = Color3.fromRGB(150, 130, 70)
+
+    local PLayout = Instance.new("UIListLayout")
+    PLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    PLayout.Parent = Panel
+    
+    PLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Panel.CanvasSize = UDim2.new(0, 0, 0, PLayout.AbsoluteContentSize.Y)
+    end)
+
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.Size = UDim2.new(1, -10, 0, 26)
+    SearchBox.Position = UDim2.new(0, 5, 0, 2)
+    SearchBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    SearchBox.TextColor3 = Color3.fromRGB(200, 200, 200)
+    SearchBox.PlaceholderText = " 🔍 Nhập tên Skin để tìm..."
+    SearchBox.Font = Enum.Font.Gotham
+    SearchBox.TextSize = 11
+    SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+    SearchBox.LayoutOrder = -1
+    SearchBox.ZIndex = 101
+    SearchBox.Parent = Panel
+    Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+    local buttonsList = {}
+    local itemCount = 1
+
+    local function AddItem(name, color)
+        local itemBtn = Instance.new("TextButton")
+        itemBtn.Size = UDim2.new(1, 0, 0, 24)
+        itemBtn.BackgroundTransparency = 1
+        itemBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+        itemBtn.Text = "     " .. name
+        itemBtn.TextColor3 = color
+        itemBtn.Font = Enum.Font.Gotham
+        itemBtn.TextSize = 11
+        itemBtn.TextXAlignment = Enum.TextXAlignment.Left
+        itemBtn.ZIndex = 101
+        itemBtn.LayoutOrder = itemCount
+        itemBtn.AutoButtonColor = false
+        itemBtn.Parent = Panel
+        itemCount = itemCount + 1
+
+        itemBtn.MouseEnter:Connect(function() itemBtn.BackgroundTransparency = 0.8 end)
+        itemBtn.MouseLeave:Connect(function() itemBtn.BackgroundTransparency = 1 end)
+        itemBtn.MouseButton1Click:Connect(function()
+            if name == "Bỏ chọn" then
+                selectedValue = nil
+                BtnText.Text = placeholder
+                BtnText.TextColor3 = Color3.fromRGB(160, 150, 180)
+            else
+                selectedValue = name
+                BtnText.Text = name
+                BtnText.TextColor3 = color
+            end
+            Panel.Visible = false
+            activeDropdownPanel = nil
+            onChangeCallback(selectedValue)
+        end)
+        
+        if name ~= "Bỏ chọn" then
+            table.insert(buttonsList, {btn = itemBtn, text = string.lower(name)})
+        end
+    end
+
+    AddItem("Bỏ chọn", Color3.fromRGB(255, 90, 90))
+    for _, name in ipairs(dataList) do AddItem(name, Color3.fromRGB(220, 220, 255)) end
+
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local query = string.lower(SearchBox.Text)
+        for _, data in ipairs(buttonsList) do
+            if query == "" or string.find(data.text, query, 1, true) then
+                data.btn.Visible = true
+            else
+                data.btn.Visible = false
+            end
+        end
+    end)
+
+    Btn.MouseButton1Click:Connect(function()
+        if activeDropdownPanel and activeDropdownPanel ~= Panel then activeDropdownPanel.Visible = false end
+        if Panel.Visible then
+            Panel.Visible = false
+            activeDropdownPanel = nil
+        else
+            local absPos = Btn.AbsolutePosition
+            Panel.Position = UDim2.new(0, absPos.X, 0, absPos.Y + Btn.AbsoluteSize.Y + 4)
+            Panel.Visible = true
+            activeDropdownPanel = Panel
+            SearchBox.Text = ""
+        end
+    end)
+end
+
+local TargetStand, TargetTrait, TargetSkin = nil, nil, nil
+
+MakeDropdown("TARGET STAND", StandData, "Chọn Stand...", 1, function(v) TargetStand = v end)
+MakeDropdown("TARGET TRAIT", TraitData, "Chọn Trait...", 2, function(v) TargetTrait = v end)
+MakeSearchableDropdown("TARGET SKIN (Ưu tiên nhất)", SkinData, "Tìm / Chọn Skin...", 3, function(v) TargetSkin = v end)
 
 local StatusBox = Instance.new("Frame")
 StatusBox.Size = UDim2.new(1, 0, 0, 24)
 StatusBox.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
-StatusBox.LayoutOrder = 3
+StatusBox.LayoutOrder = 4
 StatusBox.Parent = Body
 Instance.new("UICorner", StatusBox).CornerRadius = UDim.new(0, 5)
-local StatusStroke = Instance.new("UIStroke")
-StatusStroke.Color = Color3.fromRGB(40, 35, 60)
-StatusStroke.Parent = StatusBox
+Instance.new("UIStroke", StatusBox).Color = Color3.fromRGB(40, 35, 60)
 
 local StatusLbl = Instance.new("TextLabel")
 StatusLbl.Size = UDim2.new(1, -20, 1, 0)
@@ -355,7 +517,7 @@ StatusLbl.Parent = StatusBox
 local BtnContainer = Instance.new("Frame")
 BtnContainer.Size = UDim2.new(1, 0, 0, 32)
 BtnContainer.BackgroundTransparency = 1
-BtnContainer.LayoutOrder = 4
+BtnContainer.LayoutOrder = 5
 BtnContainer.Parent = Body
 
 local BtnLayout = Instance.new("UIListLayout")
@@ -393,7 +555,7 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
--- AUTO ROLL LOGIC: NO ROKA MODE (CHECK -> ROLL)
+-- AUTO ROLL LOGIC
 -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 local isRolling = false
 local rolls = 0
@@ -405,8 +567,8 @@ end
 
 StartBtn.MouseButton1Click:Connect(function()
     if isRolling then return end
-    if TargetStand == nil and TargetTrait == nil then
-        UpdateStatus("⚠️ Vui lòng chọn Stand hoặc Trait!", Color3.fromRGB(255, 160, 60))
+    if TargetStand == nil and TargetTrait == nil and TargetSkin == nil then
+        UpdateStatus("⚠️ Vui lòng chọn Stand, Trait hoặc Skin!", Color3.fromRGB(255, 160, 60))
         return
     end
 
@@ -422,27 +584,40 @@ StartBtn.MouseButton1Click:Connect(function()
             local currentData = GetCurrentStandData()
             local currentStandName = currentData and currentData.Name or "None"
             local currentTraitName = currentData and currentData.Trait or "None"
+            local currentSkinVal   = currentData and currentData.Skin or "None"
             
-            -- Làm sạch khoảng trắng để check
-            local gotName = string.match(tostring(currentStandName), "^%s*(.-)%s*$") or "?"
+            local gotName  = string.match(tostring(currentStandName), "^%s*(.-)%s*$") or "?"
             local gotTrait = string.match(tostring(currentTraitName), "^%s*(.-)%s*$") or "None"
+            local gotSkin  = string.match(tostring(currentSkinVal), "^%s*(.-)%s*$") or "None"
 
-            -- [BƯỚC 1]: CHECK VALUE TRƯỚC (NẾU TRÙNG THÌ DỪNG LUÔN)
-            local matchStand = false
-            local matchTrait = false
+            local isMatch = false
 
-            if TargetStand == nil or gotName == TargetStand then matchStand = true end
-            if TargetTrait == nil or gotTrait == TargetTrait then matchTrait = true end
+            if TargetSkin ~= nil then
+                local selStand, selSkin = TargetSkin:match("^(.-) %((.-)%)$")
+                if selStand and selSkin then
+                    if gotName == selStand and string.find(gotSkin, selSkin, 1, true) then
+                        isMatch = true
+                    end
+                end
+            else
+                local matchStand = (TargetStand == nil or gotName == TargetStand)
+                local matchTrait = (TargetTrait == nil or gotTrait == TargetTrait)
+                
+                if matchStand and matchTrait then
+                    isMatch = true
+                end
+            end
 
-            -- Không cho phép dừng nếu đang có Stand "None" hoặc rỗng (trừ khi cố ý)
-            if matchStand and matchTrait and gotName ~= "None" and gotName ~= "" and gotName ~= "?" then
+            if isMatch and gotName ~= "None" and gotName ~= "" and gotName ~= "?" then
                 isRolling = false
-                UpdateStatus("✅ Trúng: " .. gotName .. " [" .. gotTrait .. "]", Color3.fromRGB(90, 255, 130))
-                task.spawn(function() SendWebhook(gotName, gotTrait, rolls) end)
+                local successText = "✅ " .. gotName .. " [" .. gotTrait .. "]"
+                if gotSkin ~= "None" then successText = successText .. " 🎭 " .. gotSkin end
+                
+                UpdateStatus(successText, Color3.fromRGB(90, 255, 130))
+                task.spawn(function() SendWebhook(gotName, gotTrait, gotSkin, rolls) end)
                 break
             end
             
-            -- [BƯỚC 2]: NẾU KHÔNG TRÙNG, SỬ DỤNG ARROW LUÔN (KHÔNG CẦN ROKA)
             local currentString = tostring(StandValueObj.Value)
             UpdateStatus("🏹 Đang đâm Arrow...", Color3.fromRGB(100, 255, 100))
             
@@ -474,17 +649,17 @@ StartBtn.MouseButton1Click:Connect(function()
                 break
             end
 
-            -- Chờ server update hẳn Name mới
             task.wait(0.5) 
 
             local newData = GetCurrentStandData()
-            local newName = newData and newData.Name or "?"
-            local newTrait = newData and newData.Trait or "?"
+            local newName = string.match(tostring(newData and newData.Name or "?"), "^%s*(.-)%s*$") or "?"
+            local newTrait = string.match(tostring(newData and newData.Trait or "?"), "^%s*(.-)%s*$") or "None"
+            local newSkin = string.match(tostring(newData and newData.Skin or "None"), "^%s*(.-)%s*$") or "None"
             
-            local cleanNewName = string.match(tostring(newName), "^%s*(.-)%s*$") or "?"
-            local cleanNewTrait = string.match(tostring(newTrait), "^%s*(.-)%s*$") or "None"
+            local displayInfo = string.format("🎲 #%d: %s [%s]", rolls, newName, newTrait)
+            if newSkin ~= "None" then displayInfo = displayInfo .. " 🎭Skin!" end
             
-            UpdateStatus(string.format("🎲 #%d: %s [%s]", rolls, cleanNewName, cleanNewTrait), Color3.fromRGB(210, 190, 255))
+            UpdateStatus(displayInfo, Color3.fromRGB(210, 190, 255))
         end
     end)
 end)
@@ -496,4 +671,4 @@ StopBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-print("[Nthuc Hub] Auto Arrow v4.3 (FIXED + NO ROKA) Loaded!")
+print("[Nthuc Hub] Auto Arrow v4.5 Skin Hunter Loaded!")
