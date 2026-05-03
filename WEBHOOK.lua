@@ -3,7 +3,7 @@ local HttpService    = game:GetService("HttpService")
 local LocalPlayer    = Players.LocalPlayer
 
 local Config = {
-    WebhookURL  = "https://discord.com/api/webhooks/1498346586219090002/R0u0sUJ6p5X0Bx5AVjwRDME9dQ_tgt4wZNwZo8B3I0Y5HUpWPD6aOboSNYtQPqgzSA3a"
+    WebhookURL  = "https://discord.com/api/webhooks/1498312008041496677/bwkREm2-7DhiHjn70oMAIzHyxij6rplXnvg2GmtHTCGfxKlbyGn7iKWNEy7qW0G1cETh"
 }
 
 local LOGO_URL = "https://static.wikia.nocookie.net/blineage/images/e/e6/Site-logo.png/revision/latest?cb=20260310145648"
