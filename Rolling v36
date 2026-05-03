@@ -1,0 +1,499 @@
+-- ╔══════════════════════════════════════════╗
+-- ║   Nthuc Hub | Auto Arrow v4.2 (FIXED)    ║
+-- ║   Zero Start Delay + No Roka Logic       ║
+-- ╚══════════════════════════════════════════╝
+
+local Players           = game:GetService("Players")
+local HttpService       = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService  = game:GetService("UserInputService")
+local CoreGui           = game:GetService("CoreGui")
+local LocalPlayer       = Players.LocalPlayer
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- DATA
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+local RarityOrder = {"Common", "Uncommon", "Rare", "Legendary", "Mythical"}
+
+local StandData = {
+    Common    = {"Anubis", "Red Hot Chili Pepper", "Silver Chariot", "The Hand"},
+    Uncommon  = {"Crazy Diamond", "Magician's Red", "Purple Haze"},
+    Rare      = {"Gold Experience", "Killer Queen", "Stone Free", "Weather Report"},
+    Legendary = {"King Crimson", "Planet Waves", "Star Platinum", "Star Platinum, The World", "The World", "The World, High Voltage"},
+    Mythical  = {"Diver Down", "Whitesnake"}
+}
+
+local TraitData = {
+    Common    = {"Arrogant", "Cowardly", "Energetic", "Erratic", "Firm", "Happy"},
+    Uncommon  = {"Astute", "Curious", "Kind", "Predictive"},
+    Rare      = {"Compassionate", "Determined", "Durable", "Fearful", "Furious", "Slugger"},
+    Legendary = {"Artistic", "Cursed", "Dominant", "Methodical", "Rhythmic", "Suffocating"},
+    Mythical  = {"Demonic", "Elegant", "Feral", "Transcendent"}
+}
+
+local RarityColor = {
+    Common    = Color3.fromRGB(180, 180, 180),
+    Uncommon  = Color3.fromRGB(80, 210, 130),
+    Rare      = Color3.fromRGB(80, 150, 255),
+    Legendary = Color3.fromRGB(255, 170, 30),
+    Mythical  = Color3.fromRGB(210, 80, 255),
+}
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- WEBHOOK
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1498346586219090002/R0u0sUJ6p5X0Bx5AVjwRDME9dQ_tgt4wZNwZo8B3I0Y5HUpWPD6aOboSNYtQPqgzSA3a"
+local LOGO_URL    = "https://static.wikia.nocookie.net/blineage/images/e/e6/Site-logo.png/revision/latest?cb=20260310145648"
+
+local function SendWebhook(standName, traitName, rollCount)
+    local rarityFound = "Unknown"
+    for _, r in ipairs(RarityOrder) do
+        if StandData[r] then
+            for _, s in ipairs(StandData[r]) do
+                if s == standName then rarityFound = r break end
+            end
+        end
+    end
+
+    local rarityColorNum = {
+        Common=0xB4B4B4, Uncommon=0x50D282, Rare=0x5096FF,
+        Legendary=0xFFAA1E, Mythical=0xD250FF
+    }
+
+    local embedData = {
+        username   = "Nthuc Hub | Auto Arrow",
+        avatar_url = LOGO_URL,
+        embeds = {{
+            title = "🎯 ROLL THÀNH CÔNG!",
+            color = rarityColorNum[rarityFound] or 0x7B68EE,
+            fields = {
+                { name="🗡  Stand",    value="```"..standName.."```",   inline=true },
+                { name="✨ Trait",     value="```"..traitName.."```",   inline=true },
+                { name="🎲 Rarity",  value="```"..rarityFound.."```",  inline=true },
+                { name="🔄 Số lần roll", value="```"..tostring(rollCount).."```", inline=true },
+                { name="👤 Player",  value="```"..LocalPlayer.Name.."```", inline=true },
+            },
+            footer    = { text="Nthuc Hub Auto Arrow • "..LocalPlayer.Name, icon_url=LOGO_URL },
+            timestamp = DateTime.now():ToIsoDate()
+        }}
+    }
+
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if req then
+        pcall(req, {
+            Url     = WEBHOOK_URL,
+            Method  = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body    = HttpService:JSONEncode(embedData)
+        })
+    end
+end
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- GET CURRENT STAND DATA
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+local function GetCurrentStandData()
+    local pData = LocalPlayer:FindFirstChild("PlayerData")
+    if not pData then return nil end
+    local slot = pData:FindFirstChild("SlotData")
+    if not slot then return nil end
+    local sv = slot:FindFirstChild("Stand")
+    if not sv then return nil end
+    
+    local ok, dec = pcall(HttpService.JSONDecode, HttpService, tostring(sv.Value))
+    return (ok and type(dec) == "table") and dec or nil
+end
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- GUI SETUP
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+local GuiParent = pcall(function() return CoreGui end) and CoreGui or LocalPlayer:WaitForChild("PlayerGui")
+local old = GuiParent:FindFirstChild("NthucAutoArrow")
+if old then old:Destroy() end
+
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "NthucAutoArrow"
+GUI.ResetOnSpawn = false
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GUI.Parent = GuiParent
+
+local Win = Instance.new("Frame")
+Win.Size = UDim2.new(0, 300, 0, 270)
+Win.Position = UDim2.new(0.5, -150, 0.5, -135)
+Win.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
+Win.BorderSizePixel = 0
+Win.Parent = GUI
+Instance.new("UICorner", Win).CornerRadius = UDim.new(0, 10)
+local WinStroke = Instance.new("UIStroke")
+WinStroke.Color = Color3.fromRGB(45, 40, 70)
+WinStroke.Thickness = 1
+WinStroke.Parent = Win
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 38)
+TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Win
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 10)
+
+local TitleLbl = Instance.new("TextLabel")
+TitleLbl.Size = UDim2.new(1, -44, 1, 0)
+TitleLbl.Position = UDim2.new(0, 12, 0, 0)
+TitleLbl.BackgroundTransparency = 1
+TitleLbl.Text = "🎯 NTHUC HUB · INSTANT"
+TitleLbl.TextColor3 = Color3.fromRGB(100, 255, 180)
+TitleLbl.Font = Enum.Font.GothamBold
+TitleLbl.TextSize = 12
+TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+TitleLbl.Parent = TitleBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 24, 0, 24)
+CloseBtn.Position = UDim2.new(1, -32, 0.5, -12)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 65)
+CloseBtn.Text = "X" 
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 12
+CloseBtn.Parent = TitleBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 7)
+CloseBtn.MouseEnter:Connect(function() CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 70) end)
+CloseBtn.MouseLeave:Connect(function() CloseBtn.BackgroundColor3 = Color3.fromRGB(180, 45, 65) end)
+CloseBtn.MouseButton1Click:Connect(function() GUI:Destroy() end)
+
+local dragToggle, dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = Win.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragToggle then
+        local delta = input.Position - dragStart
+        Win.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragToggle = false end
+end)
+
+local Body = Instance.new("Frame")
+Body.Size = UDim2.new(1, -24, 1, -50)
+Body.Position = UDim2.new(0, 12, 0, 42)
+Body.BackgroundTransparency = 1
+Body.Parent = Win
+
+local BodyLayout = Instance.new("UIListLayout")
+BodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+BodyLayout.Padding = UDim.new(0, 8)
+BodyLayout.Parent = Body
+
+local activeDropdownPanel = nil
+
+local function MakeDropdown(labelText, dataTable, placeholder, layoutOrder, onChangeCallback)
+    local selectedValue = nil
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 48)
+    Container.BackgroundTransparency = 1
+    Container.LayoutOrder = layoutOrder
+    Container.Parent = Body
+
+    local Lbl = Instance.new("TextLabel")
+    Lbl.Size = UDim2.new(1, 0, 0, 14)
+    Lbl.BackgroundTransparency = 1
+    Lbl.Text = "• " .. labelText
+    Lbl.TextColor3 = Color3.fromRGB(170, 140, 250)
+    Lbl.Font = Enum.Font.GothamBold
+    Lbl.TextSize = 10
+    Lbl.TextXAlignment = Enum.TextXAlignment.Left
+    Lbl.Parent = Container
+
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, 0, 0, 30)
+    Btn.Position = UDim2.new(0, 0, 0, 16)
+    Btn.BackgroundColor3 = Color3.fromRGB(22, 22, 32)
+    Btn.Text = ""
+    Btn.AutoButtonColor = false
+    Btn.Parent = Container
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(55, 50, 85)
+    Stroke.Parent = Btn
+
+    local BtnText = Instance.new("TextLabel")
+    BtnText.Size = UDim2.new(1, -30, 1, 0)
+    BtnText.Position = UDim2.new(0, 10, 0, 0)
+    BtnText.BackgroundTransparency = 1
+    BtnText.Text = placeholder
+    BtnText.TextColor3 = Color3.fromRGB(160, 150, 180)
+    BtnText.Font = Enum.Font.Gotham
+    BtnText.TextSize = 11
+    BtnText.TextXAlignment = Enum.TextXAlignment.Left
+    BtnText.Parent = Btn
+
+    local Arrow = Instance.new("TextLabel")
+    Arrow.Size = UDim2.new(0, 20, 1, 0)
+    Arrow.Position = UDim2.new(1, -25, 0, 0)
+    Arrow.BackgroundTransparency = 1
+    Arrow.Text = "v" 
+    Arrow.TextColor3 = Color3.fromRGB(130, 110, 190)
+    Arrow.Font = Enum.Font.GothamBold
+    Arrow.TextSize = 12
+    Arrow.Parent = Btn
+
+    local Panel = Instance.new("ScrollingFrame")
+    Panel.Size = UDim2.new(0, 276, 0, 150)
+    Panel.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+    Panel.BorderSizePixel = 0
+    Panel.ZIndex = 100
+    Panel.Visible = false
+    Panel.ScrollBarThickness = 3
+    Panel.ScrollBarImageColor3 = Color3.fromRGB(90, 70, 150)
+    Panel.Parent = GUI
+    Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 6)
+    local PanelStroke = Instance.new("UIStroke")
+    PanelStroke.Color = Color3.fromRGB(90, 70, 150)
+    PanelStroke.Parent = Panel
+
+    local PLayout = Instance.new("UIListLayout")
+    PLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    PLayout.Parent = Panel
+
+    local itemCount = 0
+    local function AddItem(name, color, isHeader)
+        local itemBtn = Instance.new("TextButton")
+        itemBtn.Size = UDim2.new(1, 0, 0, 24)
+        itemBtn.BackgroundTransparency = isHeader and 0.5 or 1
+        itemBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+        itemBtn.Text = isHeader and ("  " .. name) or ("     " .. name)
+        itemBtn.TextColor3 = color
+        itemBtn.Font = isHeader and Enum.Font.GothamBold or Enum.Font.Gotham
+        itemBtn.TextSize = isHeader and 10 or 11
+        itemBtn.TextXAlignment = Enum.TextXAlignment.Left
+        itemBtn.ZIndex = 101
+        itemBtn.LayoutOrder = itemCount
+        itemBtn.AutoButtonColor = false
+        itemBtn.Parent = Panel
+        itemCount = itemCount + 1
+
+        if not isHeader then
+            itemBtn.MouseEnter:Connect(function() itemBtn.BackgroundTransparency = 0.8 end)
+            itemBtn.MouseLeave:Connect(function() itemBtn.BackgroundTransparency = 1 end)
+            itemBtn.MouseButton1Click:Connect(function()
+                if name == "Bỏ chọn" then
+                    selectedValue = nil
+                    BtnText.Text = placeholder
+                    BtnText.TextColor3 = Color3.fromRGB(160, 150, 180)
+                else
+                    selectedValue = name
+                    BtnText.Text = name
+                    BtnText.TextColor3 = color
+                end
+                Panel.Visible = false
+                activeDropdownPanel = nil
+                onChangeCallback(selectedValue)
+            end)
+        end
+    end
+
+    AddItem("Bỏ chọn", Color3.fromRGB(255, 90, 90), false)
+    for _, rarity in ipairs(RarityOrder) do
+        if dataTable[rarity] then
+            AddItem("- " .. rarity .. " -", Color3.fromRGB(110, 100, 140), true)
+            for _, name in ipairs(dataTable[rarity]) do
+                AddItem(name, RarityColor[rarity], false)
+            end
+        end
+    end
+    Panel.CanvasSize = UDim2.new(0, 0, 0, itemCount * 24)
+
+    Btn.MouseButton1Click:Connect(function()
+        if activeDropdownPanel and activeDropdownPanel ~= Panel then
+            activeDropdownPanel.Visible = false
+        end
+        if Panel.Visible then
+            Panel.Visible = false
+            activeDropdownPanel = nil
+        else
+            local absPos = Btn.AbsolutePosition
+            Panel.Position = UDim2.new(0, absPos.X, 0, absPos.Y + Btn.AbsoluteSize.Y + 4)
+            Panel.Visible = true
+            activeDropdownPanel = Panel
+        end
+    end)
+
+    return Container
+end
+
+local TargetStand, TargetTrait = nil, nil
+MakeDropdown("TARGET STAND (Tuỳ chọn)", StandData, "Chọn Stand...", 1, function(v) TargetStand = v end)
+MakeDropdown("TARGET TRAIT (Tuỳ chọn)", TraitData, "Chọn Trait...", 2, function(v) TargetTrait = v end)
+
+local StatusBox = Instance.new("Frame")
+StatusBox.Size = UDim2.new(1, 0, 0, 24)
+StatusBox.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
+StatusBox.LayoutOrder = 3
+StatusBox.Parent = Body
+Instance.new("UICorner", StatusBox).CornerRadius = UDim.new(0, 5)
+local StatusStroke = Instance.new("UIStroke")
+StatusStroke.Color = Color3.fromRGB(40, 35, 60)
+StatusStroke.Parent = StatusBox
+
+local StatusLbl = Instance.new("TextLabel")
+StatusLbl.Size = UDim2.new(1, -20, 1, 0)
+StatusLbl.Position = UDim2.new(0, 10, 0, 0)
+StatusLbl.BackgroundTransparency = 1
+StatusLbl.Text = "⏸ Đang chờ thiết lập..."
+StatusLbl.TextColor3 = Color3.fromRGB(160, 160, 180)
+StatusLbl.Font = Enum.Font.Gotham
+StatusLbl.TextSize = 10
+StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+StatusLbl.Parent = StatusBox
+
+local BtnContainer = Instance.new("Frame")
+BtnContainer.Size = UDim2.new(1, 0, 0, 32)
+BtnContainer.BackgroundTransparency = 1
+BtnContainer.LayoutOrder = 4
+BtnContainer.Parent = Body
+
+local BtnLayout = Instance.new("UIListLayout")
+BtnLayout.FillDirection = Enum.FillDirection.Horizontal
+BtnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+BtnLayout.Padding = UDim.new(0, 10)
+BtnLayout.Parent = BtnContainer
+
+local function CreateBtn(txt, color, colorHover)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 130, 1, 0)
+    btn.BackgroundColor3 = color
+    btn.Text = txt
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Parent = BtnContainer
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = colorHover end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = color end)
+    return btn
+end
+
+local StartBtn = CreateBtn("⚡ INSTANT START", Color3.fromRGB(30, 180, 100), Color3.fromRGB(50, 200, 120))
+local StopBtn  = CreateBtn("DỪNG",    Color3.fromRGB(170, 50, 60), Color3.fromRGB(200, 70, 80))
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if activeDropdownPanel then
+            task.delay(0.1, function()
+                if activeDropdownPanel then activeDropdownPanel.Visible = false end
+            end)
+        end
+    end
+end)
+
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-- AUTO ROLL LOGIC: NO ROKA MODE (CHECK -> ROLL)
+-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+local isRolling = false
+local rolls = 0
+
+local function UpdateStatus(text, color)
+    StatusLbl.Text = text
+    StatusLbl.TextColor3 = color or Color3.fromRGB(160, 160, 180)
+end
+
+StartBtn.MouseButton1Click:Connect(function()
+    if isRolling then return end
+    if TargetStand == nil and TargetTrait == nil then
+        UpdateStatus("⚠️ Vui lòng chọn Stand hoặc Trait!", Color3.fromRGB(255, 160, 60))
+        return
+    end
+
+    isRolling = true
+    rolls = 0
+    
+    UpdateStatus("⚡ Đang kiểm tra dữ liệu hiện tại...", Color3.fromRGB(100, 255, 180))
+
+    task.spawn(function()
+        local StandValueObj = LocalPlayer:WaitForChild("PlayerData"):WaitForChild("SlotData"):WaitForChild("Stand")
+        
+        while isRolling do
+            local currentData = GetCurrentStandData()
+            local currentStandName = currentData and currentData.Name or "None"
+            local currentTraitName = currentData and currentData.Trait or "None"
+            
+            -- Làm sạch khoảng trắng để check
+            local gotName = string.match(tostring(currentStandName), "^%s*(.-)%s*$") or "?"
+            local gotTrait = string.match(tostring(currentTraitName), "^%s*(.-)%s*$") or "None"
+
+            -- [BƯỚC 1]: CHECK VALUE TRƯỚC (NẾU TRÙNG THÌ DỪNG LUÔN)
+            local matchStand = false
+            local matchTrait = false
+
+            if TargetStand == nil or gotName == TargetStand then matchStand = true end
+            if TargetTrait == nil or gotTrait == TargetTrait then matchTrait = true end
+
+            -- Không cho phép dừng nếu đang có Stand "None" hoặc rỗng (trừ khi cố ý)
+            if matchStand and matchTrait and gotName ~= "None" and gotName ~= "" and gotName ~= "?" then
+                isRolling = false
+                UpdateStatus("✅ Trúng: " .. gotName .. " [" .. gotTrait .. "]", Color3.fromRGB(90, 255, 130))
+                task.spawn(function() SendWebhook(gotName, gotTrait, rolls) end)
+                break
+            end
+            
+            -- [BƯỚC 2]: NẾU KHÔNG TRÙNG, SỬ DỤNG ARROW LUÔN (KHÔNG CẦN ROKA)
+            local currentString = tostring(StandValueObj.Value)
+            UpdateStatus("🏹 Đang đâm Arrow...", Color3.fromRGB(100, 255, 100))
+            
+            rolls = rolls + 1
+            local waitTime = 0
+            local successChange = false
+            
+            while isRolling and waitTime < 20 do
+                pcall(function() ReplicatedStorage.requests.character.use_item:FireServer("Stand Arrow") end)
+                
+                local t0 = os.clock()
+                while isRolling and (os.clock() - t0 < 0.25) do
+                    if tostring(StandValueObj.Value) ~= currentString then
+                        successChange = true
+                        break
+                    end
+                    task.wait() 
+                end
+
+                if successChange then break end
+                waitTime = waitTime + 0.25
+            end
+
+            if not isRolling then break end
+
+            if not successChange then
+                UpdateStatus("❌ Lỗi mạng hoặc hết item Arrow!", Color3.fromRGB(255, 90, 90))
+                isRolling = false
+                break
+            end
+
+            -- Chờ server update hẳn Name mới
+            task.wait(0.5) 
+
+            local newData = GetCurrentStandData()
+            local newName = newData and newData.Name or "?"
+            local newTrait = newData and newData.Trait or "?"
+            
+            local cleanNewName = string.match(tostring(newName), "^%s*(.-)%s*$") or "?"
+            local cleanNewTrait = string.match(tostring(newTrait), "^%s*(.-)%s*$") or "None"
+            
+            UpdateStatus(string.format("🎲 #%d: %s [%s]", rolls, cleanNewName, cleanNewTrait), Color3.fromRGB(210, 190, 255))
+        end
+    end)
+end)
+
+StopBtn.MouseButton1Click:Connect(function()
+    if isRolling then
+        isRolling = false
+        UpdateStatus("⏹ Đã dừng. (Rolls: " .. rolls .. ")", Color3.fromRGB(255, 160, 60))
+    end
+end)
+
+print("[Nthuc Hub] Auto Arrow v4.3 (FIXED + NO ROKA) Loaded!")
